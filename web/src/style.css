@@ -273,7 +273,7 @@ svg { flex-shrink: 0; }
 .row-directions { gap: 3px 8px; margin-top: 3px; }
 .device-speed .row-directions { flex-direction: column; align-items: flex-start; margin-top: 0; }
 .usage-primary { font-size: 13px; font-weight: 600; }
-.table-actions { display: flex; justify-content: flex-end; gap: 3px; }
+.table-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 3px; }
 .table-actions .icon-button { width: 29px; min-height: 29px; }
 .table-actions .button[aria-pressed="true"] { background: var(--accent-dim); border-color: #526b43; color: var(--accent); }
 .empty-state { min-height: 155px; display: grid; justify-items: center; align-content: center; gap: 9px; color: var(--muted); padding: 15px; }
@@ -299,6 +299,16 @@ svg { flex-shrink: 0; }
 .modal-form label { font-size: 13px; font-weight: 600; }
 .modal-form p { margin-bottom: 0; line-height: 1.55; overflow-wrap: anywhere; }
 .modal-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; margin-top: 7px; }
+.destinations-modal { width: min(600px, calc(100vw - 30px)); }
+.destinations-scroll, .destination-state { border: 1px solid var(--line); border-radius: 8px; }
+.destinations-scroll { max-height: min(48dvh, 345px); overflow: auto; }
+.destinations-table { width: 100%; table-layout: fixed; border-spacing: 0; }
+.destinations-table th, .destinations-table td { text-align: left; padding: 9px 11px; font-size: 12px; }
+.destinations-table th { position: sticky; top: 0; color: var(--muted); background: var(--surface-raised); font-weight: 600; }
+.destinations-table th:last-child { width: 14em; }
+.destinations-table td { border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.destinations-table time { color: var(--muted); }
+.destination-state { padding: 24px 12px; text-align: center; }
 .form-error { color: #f6b48a; font-size: 13px; line-height: 1.5; }
 .form-feedback { color: #c4e6ab; font-size: 13px; line-height: 1.5; }
 .copy-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }

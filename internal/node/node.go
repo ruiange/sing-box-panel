@@ -30,6 +30,11 @@ func New(cfg Config) (*Node, error) {
 	if err := cfg.prepare(); err != nil {
 		return nil, err
 	}
+	if cfg.RecordDestinations {
+		if err := cfg.prepareDestinationAPI(); err != nil {
+			return nil, err
+		}
+	}
 	conn, err := newStatsConnection(cfg.StatsAddress)
 	if err != nil {
 		return nil, err

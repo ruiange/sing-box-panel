@@ -5,6 +5,17 @@ export interface Device {
   createdAt: string
 }
 
+export interface DeviceDestination {
+  id: string
+  address: string
+  lastSeenAt: string
+}
+
+export interface DeviceDestinationPage {
+  items: DeviceDestination[]
+  nextCursor?: string
+}
+
 export interface Usage {
   upload: string
   download: string

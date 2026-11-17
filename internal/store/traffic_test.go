@@ -159,7 +159,7 @@ func TestDeviceActivityPersistsAfterMigration(t *testing.T) {
 	if err := s.RecordTraffic(ctx, start.Add(2*time.Minute), start, map[string]Counters{phone.ID: {Upload: 75}}, time.UTC); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.db.ExecContext(ctx, `DROP TABLE device_activity; PRAGMA user_version = 2;`); err != nil {
+	if _, err := s.db.ExecContext(ctx, `DROP TABLE device_destinations; DROP TABLE device_activity; PRAGMA user_version = 2;`); err != nil {
 		t.Fatal(err)
 	}
 	reopen := func() {
@@ -293,6 +293,7 @@ func TestHourlyTrafficStartsAtMigrationBaseline(t *testing.T) {
 	oldSample := start.Add(105 * time.Minute)
 	record(oldSample, map[string]Counters{"phone": {Upload: 100, Download: 200}})
 	if _, err := s.db.ExecContext(ctx, `
+		DROP TABLE device_destinations;
 		DROP TABLE device_activity;
 		DROP TABLE traffic_hourly;
 		DROP TABLE traffic_observed_hours;

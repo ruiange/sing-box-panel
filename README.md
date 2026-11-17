@@ -36,18 +36,30 @@ sbp=$(curl -qfsSL https://github.com/ruiange/sing-box-panel/releases/latest/down
 
 引导脚本会显示下载安装包的进度，并逐步打印环境检查、SHA-256 校验、解压、公网 IP、系统依赖和服务启动状态。脚本自动选择 Linux amd64 或 arm64 安装包。有多个公网地址，或服务器的出口与入口 IP 不同时，可将 `bash -c "$sbp"` 改为 `bash -c "$sbp" -- 203.0.113.10` 并换成实际公网 IP。默认使用 HTTP `9443` 提供后台，启用从 `8443` 开始的 13 个节点。两个服务及就绪检查通过后会打印后台地址和新生成的管理员密码。云安全组与防火墙需要放行下方表格所列的节点端口，以及 TCP `9443`。
 
-## 查看版本与下载安装包
+## `dsb` 管理命令
 
-从 `v0.1.3` 起，安装后的 `sing-box-panel` 支持以下命令。
+执行 `dsb` 打开菜单，输入编号执行对应操作。也可以在命令中直接带编号。
 
 ```bash
-sing-box-panel version         # 显示当前面板二进制的版本
-sing-box-panel latest          # 查询 GitHub 上最新的面板 Release
-sing-box-panel download        # 下载本机架构的最新安装包到当前目录
-sing-box-panel download /tmp   # 下载到指定目录
+dsb
+dsb 1           # 查看当前面板版本
+dsb 2           # 查询 GitHub 上的最新版本
+dsb 3           # 下载本机架构的最新安装包到当前目录
+dsb 3 /tmp      # 下载到指定目录
+sudo dsb 4      # 一键升级到最新版本
 ```
 
-`download` 支持 Linux `amd64` 和 `arm64`，按 GitHub Release 记录校验安装包的 SHA-256，并将压缩包保存到指定的现有目录。需要解压和安装时，可使用下文的离线部署步骤。直接用 `go build` 编译且未注入版本号时，`version` 显示 `dev`。
+菜单中输入 `0` 退出。使用编号 `3` 下载时，脚本按 GitHub Release 记录校验 SHA-256，并将安装包放到指定的现有目录。直接用 `go build` 编译且未注入版本号时，当前版本显示 `dev`。
+
+## 已有服务器一键升级
+
+如果服务器还没有 `dsb`，用 root 执行以下命令。升级后就可以用 `dsb 4` 继续更新。
+
+```bash
+sbp=$(curl -qfsSL https://github.com/ruiange/sing-box-panel/releases/latest/download/install-from-release.sh) && bash -c "$sbp" -- --upgrade
+```
+
+原地升级适用于已运行的标准 systemd 安装。脚本会保留原有密码、配置、设备、订阅和流量数据，先备份再替换程序和网页。升级会重启面板，节点核心发生更新时也会重启节点。脚本会在检查服务就绪后报告结果。离线升级时，校验并解压对应架构的新安装包，再运行包内的 `sudo bash update.sh`。
 
 ## 制作安装包与离线部署
 
@@ -79,7 +91,7 @@ sudo bash install.sh --http --multiprotocol 203.0.113.10
 
 ## GitHub 自动发布
 
-先推送待发布的提交，再推送形如 `vX.Y.Z` 的版本标签，触发 [发布工作流](.github/workflows/release.yml)。GitHub Actions 构建前端、运行 Go 测试，并构建 Linux `amd64` 和 `arm64` 两个安装包。工作流将版本标签写入面板二进制和安装引导脚本，使引导使用同一 Release 的安装包与校验文件。
+先推送待发布的提交，再推送形如 `vX.Y.Z` 的版本标签，触发 [发布工作流](.github/workflows/release.yml)。GitHub Actions 构建前端、运行 Go 测试，并构建 Linux `amd64` 和 `arm64` 两个安装包。工作流在 amd64 上验证新机安装和从 `v0.1.3` 原地升级，并将标签写入面板二进制及引导脚本，使引导使用同一 Release 的安装包与校验文件。
 
 两种架构的安装包、各自的 `.tar.gz.sha256`、`install-from-release.sh` 和对应的 sing-box 核心源码上传完成后，工作流公开该 Release 并将其标记为 Latest。需要手动选择发行版或镜像仓库时，可在引导脚本中使用 `--version` 或 `--repo`。
 
@@ -135,6 +147,7 @@ Shadowrocket 可使用原有链接，或在基础订阅 URL 后加 `/shadowrocke
 ## 计量和订阅
 
 - 每台设备的订阅含一套独立的代理凭据。同一凭据被复制到多台设备后，用量会归到同一个设备条目。仅统计经过该节点的流量。
+- 在设备管理中点「访问记录」，可按时间翻页查看经过该节点的目标域名或 IP、端口和连接时间。同一设备多次连接同一目标时分别保存。已写入的记录不会按条数或日期自动清理，数据库和备份会随记录增长。共用订阅的连接归到同一设备。记录仅供登录后的管理员查看。
 - “轮换订阅”会让旧下载链接失效。已导入的代理凭据继续有效，停用设备会从生效配置删除其凭据。重载会短暂中断该节点的其他连接。
 - Go 使用不清零的 gRPC 累计值，增量和游标在同一数据库事务中保存。配置发布前先采集，成功重载后重建采集基线。节点异常退出时，上次成功采集后的流量可能漏记。流量计在采集时按配置时区归属日期，跨零点的一个采集间隔可能落入新的一天。
 - 节点生成的路由拒绝向回环地址和常见私网地址转发。订阅 URL 含访问凭据，生产反向代理应避免记录 `/sub/` 路径。备份时使用 SQLite 备份工具，或在停止面板后备份数据库文件。

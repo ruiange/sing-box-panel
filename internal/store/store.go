@@ -197,7 +197,42 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		if err != nil {
 			return err
 		}
+		fallthrough
 	case 3:
+		_, err = tx.ExecContext(ctx, `
+			CREATE TABLE device_destinations (
+				device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+				address TEXT NOT NULL,
+				last_seen_at TEXT NOT NULL,
+				PRIMARY KEY (device_id, address)
+			) STRICT;
+			CREATE INDEX device_destinations_by_recency ON device_destinations(device_id, last_seen_at DESC, address);
+			PRAGMA user_version = 4;
+		`)
+		if err != nil {
+			return err
+		}
+		fallthrough
+	case 4:
+		_, err = tx.ExecContext(ctx, `
+			CREATE TABLE device_destinations_new (
+				device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+				connection_id TEXT NOT NULL,
+				address TEXT NOT NULL,
+				last_seen_at TEXT NOT NULL,
+				PRIMARY KEY (device_id, connection_id)
+			) STRICT;
+			INSERT INTO device_destinations_new (device_id, connection_id, address, last_seen_at)
+			SELECT device_id, 'legacy:' || rowid, address, last_seen_at FROM device_destinations;
+			DROP TABLE device_destinations;
+			ALTER TABLE device_destinations_new RENAME TO device_destinations;
+			CREATE INDEX device_destinations_by_recency ON device_destinations(device_id, last_seen_at DESC, connection_id DESC);
+			PRAGMA user_version = 5;
+		`)
+		if err != nil {
+			return err
+		}
+	case 5:
 	default:
 		return fmt.Errorf("unsupported schema version %d", version)
 	}

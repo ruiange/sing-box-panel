@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 	_ "time/tzdata"
@@ -40,8 +41,9 @@ func run(logger *slog.Logger) error {
 	defer db.Close()
 
 	service := panel.NewService(db, nil, cfg, logger)
+	var managed *node.Node
 	if cfg.Node != nil {
-		managed, err := node.New(*cfg.Node)
+		managed, err = node.New(*cfg.Node)
 		if err != nil {
 			return err
 		}
@@ -86,15 +88,15 @@ func run(logger *slog.Logger) error {
 		logger.Info("面板已启动", "listen", cfg.Listen, "https", cfg.HTTPSHost != "")
 		serverErr <- serve(listener)
 	}()
-	collectorDone := make(chan struct{})
-	go func() {
-		defer close(collectorDone)
-		service.RunCollector(ctx)
-	}()
+	var collectors sync.WaitGroup
+	collectors.Go(func() { service.RunCollector(ctx) })
+	if managed != nil && cfg.Node.RecordDestinations {
+		collectors.Go(func() { service.RunDestinationCollector(ctx, managed) })
+	}
 	select {
 	case err := <-serverErr:
 		stop()
-		<-collectorDone
+		collectors.Wait()
 		if !errors.Is(err, http.ErrServerClosed) {
 			return err
 		}
@@ -103,10 +105,11 @@ func run(logger *slog.Logger) error {
 	}
 	shutdown, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
-	if err := httpServer.Shutdown(shutdown); err != nil {
+	err = httpServer.Shutdown(shutdown)
+	collectors.Wait()
+	if err != nil {
 		return err
 	}
-	<-collectorDone
 	lastSample, cancelSample := context.WithTimeout(shutdown, 5*time.Second)
 	defer cancelSample()
 	if err := service.CollectBeforeShutdown(lastSample); err != nil {

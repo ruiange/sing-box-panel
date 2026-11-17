@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 umask 077
+operation=安装
+total_steps=8
 
 die() {
-    printf '安装失败：%s\n' "$*" >&2
+    printf '%s失败：%s\n' "$operation" "$*" >&2
     exit 1
 }
 
 step() {
-    printf '[%s/8] %s\n' "$1" "$2" >&2
+    printf '[%s/%s] %s\n' "$1" "$total_steps" "$2" >&2
 }
 
 usage() {
     printf '%s\n' \
         '用法：sudo bash install-from-release.sh [--repo OWNER/REPO] [--version TAG] [公网IP [节点端口] [网页端口]]' \
+        '      sudo bash install-from-release.sh --upgrade [--repo OWNER/REPO] [--version TAG]' \
         '从 GitHub Releases 下载安装包，安装 HTTP 面板和多协议节点。' \
+        '--upgrade 原地升级已有面板，沿用服务器的配置和数据。' \
         '发布附件默认使用同一版本的安装包。未指定版本的源码脚本使用最新发布。' \
         '省略公网 IP 时自动检测，也可手动指定。' \
         '默认网页端口 9443，节点从 8443 起使用连续的 13 个端口。' \
@@ -117,6 +121,11 @@ while [[ $# -gt 0 ]]; do
             version=$2
             shift 2
             ;;
+        --upgrade)
+            operation=升级
+            total_steps=6
+            shift
+            ;;
         --help|-h) usage; exit 0 ;;
         --*) die "未知选项 $1。" ;;
         *) break ;;
@@ -127,6 +136,9 @@ if [[ $# -gt 3 ]]; then
     usage >&2
     exit 1
 fi
+if [[ $operation == 升级 && $# -gt 0 ]]; then
+    die '升级使用现有配置，无需传入公网 IP 或端口。'
+fi
 [[ $repo =~ ^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$ && ${repo#*/} != . && ${repo#*/} != .. ]] ||
     die 'GitHub 仓库须为 OWNER/REPO。'
 if [[ -z $version && $repo == ruiange/sing-box-panel ]]; then
@@ -136,6 +148,10 @@ fi
 step 1 '检查系统、处理器架构和下载工具'
 [[ $EUID -eq 0 ]] || die '请用 root 帐号或 sudo 运行。'
 [[ $(uname -s) == Linux && -d /run/systemd/system ]] || die '请在运行 systemd 的 Linux VPS 上执行。'
+if [[ $operation == 升级 ]]; then
+    [[ -f /etc/sing-box-panel/panel.env && ! -L /etc/sing-box-panel/panel.env ]] ||
+        die '找不到已有面板配置。新服务器请运行首次安装命令。'
+fi
 case "$(uname -m)" in
     x86_64|amd64) arch=amd64 ;;
     aarch64|arm64) arch=arm64 ;;
@@ -174,6 +190,13 @@ printf '  SHA-256 校验通过。\n' >&2
 step 5 '解压安装包'
 mkdir -- "$stage/unpacked" || die '创建解压目录失败。'
 tar -xzf "$stage/$archive" -C "$stage/unpacked" || die '解压安装包失败。'
+if [[ $operation == 升级 ]]; then
+    updater="$stage/unpacked/update.sh"
+    [[ -f $updater && ! -L $updater ]] || die '这个发布版本缺少原地升级脚本。'
+    step 6 '备份并原地升级面板'
+    bash "$updater"
+    exit
+fi
 installer="$stage/unpacked/install.sh"
 [[ -f $installer && ! -L $installer ]] || die '安装包缺少 install.sh。'
 

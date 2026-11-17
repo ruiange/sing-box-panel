@@ -123,17 +123,21 @@ func ConfigFromEnv() (Config, error) {
 		}
 	}
 	cfg.Endpoint = Endpoint{Host: host, Port: port, ServerName: serverName, PublicKey: pubKey, ShortID: shortID}
+	_, listenPort, _ := net.SplitHostPort(cfg.Listen)
+	panelPort, _ := strconv.Atoi(listenPort)
 	cfg.Node = &node.Config{
-		BinaryPath:        env("PANEL_SING_BOX_BINARY", "/usr/local/bin/sing-box-panel-core"),
-		ConfigPath:        env("PANEL_SING_BOX_CONFIG", "/var/lib/sing-box-panel/node.json"),
-		StatsAddress:      statsAddress,
-		Listen:            env("PANEL_NODE_LISTEN", "::"),
-		ListenPort:        port,
-		ServerName:        serverName,
-		RealityPrivateKey: privKey,
-		RealityShortID:    shortID,
-		HandshakeServer:   env("PANEL_REALITY_HANDSHAKE_HOST", serverName),
-		HandshakePort:     handshakePort,
+		BinaryPath:         env("PANEL_SING_BOX_BINARY", "/usr/local/bin/sing-box-panel-core"),
+		ConfigPath:         env("PANEL_SING_BOX_CONFIG", "/var/lib/sing-box-panel/node.json"),
+		StatsAddress:       statsAddress,
+		Listen:             env("PANEL_NODE_LISTEN", "::"),
+		ListenPort:         port,
+		ServerName:         serverName,
+		RealityPrivateKey:  privKey,
+		RealityShortID:     shortID,
+		HandshakeServer:    env("PANEL_REALITY_HANDSHAKE_HOST", serverName),
+		HandshakePort:      handshakePort,
+		RecordDestinations: true,
+		PanelPort:          panelPort,
 	}
 	if err := cfg.configureProfiles(privKey); err != nil {
 		return cfg, err

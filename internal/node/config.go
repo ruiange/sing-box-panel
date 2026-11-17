@@ -27,6 +27,9 @@ type Config struct {
 	HandshakeServer                      string
 	ListenPort, HandshakePort            int
 	Profiles                             *Profiles
+	RecordDestinations                   bool
+	PanelPort                            int
+	destinationAPI                       *destinationAPIService
 	// ReloadCommand is an operator-provided executable and fixed argument list.
 	ReloadCommand []string
 }
@@ -164,6 +167,9 @@ func renderConfig(c Config, devices []Device) ([]byte, error) {
 	if c.Profiles != nil {
 		existing := document["inbounds"].([]map[string]any)
 		document["inbounds"] = append(existing, renderProfiles(c, devices)...)
+	}
+	if c.destinationAPI != nil {
+		document["services"] = []destinationAPIService{*c.destinationAPI}
 	}
 	payload, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {

@@ -3,6 +3,7 @@ package panel
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -43,6 +44,7 @@ func (s *Service) Handler() http.Handler {
 			private.Get("/devices", s.listDevices)
 			private.Post("/devices", s.createDevice)
 			private.Patch("/devices/{id}", s.updateDevice)
+			private.Get("/devices/{id}/destinations", s.deviceDestinations)
 			private.Get("/devices/{id}/subscription", s.getSubscription)
 			private.Get("/devices/{id}/subscription-qr", s.subscriptionQR)
 			private.Post("/devices/{id}/rotate-subscription", s.rotateSubscription)
@@ -255,6 +257,35 @@ func (s *Service) device(w http.ResponseWriter, r *http.Request) (store.Device, 
 		s.report(w, "读取设备失败", err)
 	}
 	return device, err == nil
+}
+
+func (s *Service) deviceDestinations(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	limit := store.MaxDestinationsPerPage
+	if parameter := query.Get("limit"); parameter != "" {
+		var err error
+		limit, err = strconv.Atoi(parameter)
+		if err != nil || limit < 1 || limit > store.MaxDestinationsPerPage {
+			fail(w, http.StatusBadRequest, fmt.Sprintf("limit 必须是 1 至 %d 的整数", store.MaxDestinationsPerPage))
+			return
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	device, ok := s.device(w, r)
+	if !ok {
+		return
+	}
+	page, err := s.store.ListDestinations(r.Context(), device.ID, limit, query.Get("before"))
+	if errors.Is(err, store.ErrInvalidDestinationCursor) {
+		fail(w, http.StatusBadRequest, "访问记录分页游标无效")
+		return
+	}
+	if err != nil {
+		s.report(w, "读取访问地址失败", err)
+		return
+	}
+	respond(w, http.StatusOK, page)
 }
 
 func (s *Service) getSubscription(w http.ResponseWriter, r *http.Request) {

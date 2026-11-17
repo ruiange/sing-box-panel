@@ -96,7 +96,7 @@ done
 stage=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 for item in bin/sing-box-panel bin/sing-box-panel-core web/index.html \
     deploy/sing-box-panel.service deploy/sing-box-panel-node.service \
-    deploy/49-sing-box-panel.rules deploy/check-node-restart.sh; do
+    deploy/49-sing-box-panel.rules deploy/check-node-restart.sh deploy/dsb.sh; do
     [[ -f $stage/$item && ! -L $stage/$item ]] || die "安装包缺少 ${item}。"
 done
 [[ -x $stage/bin/sing-box-panel && -x $stage/bin/sing-box-panel-core && -d $stage/web/assets ]] ||
@@ -152,7 +152,7 @@ web_dir=/opt/sing-box-panel/web
 panel_unit=/etc/systemd/system/sing-box-panel.service
 node_unit=/etc/systemd/system/sing-box-panel-node.service
 polkit_rule=/etc/polkit-1/rules.d/49-sing-box-panel.rules
-for target in /usr/local/bin/sing-box-panel /usr/local/bin/sing-box-panel-core \
+for target in /usr/local/bin/sing-box-panel /usr/local/bin/sing-box-panel-core /usr/local/bin/dsb \
     "$env_dir" "$state_dir" /opt/sing-box-panel "$panel_unit" "$node_unit" "$polkit_rule" \
     /etc/sudoers.d/sing-box-panel; do
     if [[ -e $target || -L $target ]]; then
@@ -228,6 +228,7 @@ if [[ ! -d /usr/local/bin ]]; then
     install -d -m 0755 -o root -g root /usr/local/bin
 fi
 install -m 0755 -o root -g root "$stage/bin/sing-box-panel" "$stage/bin/sing-box-panel-core" /usr/local/bin/
+install -m 0755 -o root -g root "$stage/deploy/dsb.sh" /usr/local/bin/dsb
 find "$stage/web" -type d -print0 | while IFS= read -r -d '' path; do
     install -d -m 0755 -o root -g root "$web_dir${path#$stage/web}"
 done
@@ -277,6 +278,7 @@ install_step 8 '检查服务状态和端口监听'
 for (( attempt = 0; attempt < 45; attempt++ )); do
     if ready; then
         printf '\n面板已启动：%s\n管理员密码：%s\n' "$public_url" "$password"
+        printf '%s\n' '输入 dsb 打开管理菜单。'
         printf '请放行以下 TCP 端口：%s。\n' "${public_ports[*]}"
         if (( ${#node_udp_ports[@]} )); then
             printf '请放行以下 UDP 端口：%s。\n' "${node_udp_ports[*]}"

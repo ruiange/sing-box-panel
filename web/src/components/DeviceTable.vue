@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Activity, ArrowDown, ArrowUp, Link2, Pencil, Power, Radio, Smartphone } from 'lucide-vue-next'
+import { Activity, ArrowDown, ArrowUp, History, Link2, Pencil, Power, Radio, Smartphone } from 'lucide-vue-next'
 import type { Device, DevicePresence, LiveRate, PeriodUsage } from '../api'
 import { formatBytes, formatRate, formatTime, totalUsage } from '../format'
 
@@ -19,6 +19,7 @@ defineEmits<{
   rename: [device: Device]
   toggle: [device: Device]
   traffic: [device: Device]
+  destinations: [device: Device]
 }>()
 
 const statuses = {
@@ -102,6 +103,9 @@ const rows = computed(() => props.devices.map((device) => {
               </button>
               <button v-if="device.enabled" class="button compact" type="button" @click="$emit('subscription', device)">
                 <Link2 :size="14" aria-hidden="true" />订阅
+              </button>
+              <button class="button compact" type="button" :aria-label="'查看 ' + device.name + ' 的访问记录'" @click="$emit('destinations', device)">
+                <History :size="14" aria-hidden="true" />访问记录
               </button>
               <button class="icon-button" type="button" :title="'重命名 ' + device.name" :aria-label="'重命名 ' + device.name" @click="$emit('rename', device)">
                 <Pencil :size="15" aria-hidden="true" />

@@ -83,7 +83,7 @@ fi
 		Listen: "127.0.0.1", ListenPort: corePort, ServerName: targetURL.Hostname(),
 		HandshakeServer: targetURL.Hostname(), HandshakePort: 443,
 		RealityPrivateKey: base64.RawURLEncoding.EncodeToString(key.Bytes()), RealityShortID: "35e0cd09e8f42b80",
-		ReloadCommand: []string{start, binary, coreConfig, corePID, coreLog},
+		ReloadCommand: []string{start, binary, coreConfig, corePID, coreLog}, RecordDestinations: true,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -108,6 +108,16 @@ fi
 	if err := service.Initialize(ctx); err != nil {
 		t.Fatal(err)
 	}
+	destinationCtx, stopDestinations := context.WithCancel(ctx)
+	destinationsDone := make(chan struct{})
+	go func() {
+		defer close(destinationsDone)
+		service.RunDestinationCollector(destinationCtx, managed)
+	}()
+	defer func() {
+		stopDestinations()
+		<-destinationsDone
+	}()
 	httpServer := httptest.NewUnstartedServer(service.Handler())
 	_ = httpServer.Listener.Close()
 	httpServer.Listener = listener
@@ -148,6 +158,29 @@ fi
 	requestPanel(t, ctx, client, http.MethodGet, pcURL+"/v2ray", "", http.StatusOK)
 
 	proxyRequest(t, ctx, binary, dir, "phone", target, phoneConfig, true)
+	proxyRequest(t, ctx, binary, dir, "phone-repeat", target, phoneConfig, true)
+	expectedDestination := net.JoinHostPort(strings.ToLower(targetURL.Hostname()), "443")
+	phoneHistoryPath := "/api/devices/" + phone.ID + "/destinations"
+	deadline := time.Now().Add(8 * time.Second)
+	for {
+		phoneHistory := panelData[store.DestinationPage](t, fetch(http.MethodGet, phoneHistoryPath+"?limit=1", "", http.StatusOK))
+		if len(phoneHistory.Items) == 1 && phoneHistory.Items[0].Address == expectedDestination && phoneHistory.NextCursor != "" {
+			older := panelData[store.DestinationPage](t, fetch(http.MethodGet, phoneHistoryPath+"?limit=1&before="+url.QueryEscape(phoneHistory.NextCursor), "", http.StatusOK))
+			if len(older.Items) != 1 || older.Items[0].Address != expectedDestination ||
+				older.Items[0].ID == phoneHistory.Items[0].ID || older.NextCursor != "" {
+				t.Fatalf("repeated connection should appear once on each page: first=%+v second=%+v", phoneHistory, older)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("target %s missing from the phone's destination history: %+v", expectedDestination, phoneHistory.Items)
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	pcHistory := panelData[store.DestinationPage](t, fetch(http.MethodGet, "/api/devices/"+pc.ID+"/destinations", "", http.StatusOK))
+	if len(pcHistory.Items) != 0 {
+		t.Fatalf("phone connection appeared under a different device: %+v", pcHistory.Items)
+	}
 	if err := service.CollectBeforeShutdown(ctx); err != nil {
 		t.Fatal(err)
 	}

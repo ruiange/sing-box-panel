@@ -1,0 +1,32 @@
+// Wire-compatible subset of sing-box v1.14.4 daemon/started_service.proto.
+syntax = "proto3";
+
+package daemon;
+
+option go_package = "github.com/ruiange/sing-box-panel/internal/node/connectionwire";
+
+message SubscribeConnectionsRequest {
+  int64 interval = 1;
+}
+
+enum ConnectionEventType {
+  CONNECTION_EVENT_NEW = 0;
+  CONNECTION_EVENT_UPDATE = 1;
+  CONNECTION_EVENT_CLOSED = 2;
+}
+
+message ConnectionEvent {
+  ConnectionEventType type = 1;
+  Connection connection = 3;
+}
+
+message ConnectionEvents {
+  repeated ConnectionEvent events = 1;
+}
+
+message Connection {
+  string id = 1;
+  string destination = 7;
+  string user = 10;
+  int64 created_at = 12;
+}

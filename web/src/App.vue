@@ -8,6 +8,7 @@ import { api, APIError, errorMessage, type Device, type Traffic } from './api'
 import { beginDeviceCreation, confirmDeviceCreations, hasPendingDeviceCreation, submitDeviceCreation, type DeviceCreateRequest } from './deviceCreation'
 import { formatBytes, formatRate, formatTime, totalUsage } from './format'
 import { useLiveTraffic } from './useLiveTraffic'
+import DeviceDestinations from './components/DeviceDestinations.vue'
 import DeviceTable from './components/DeviceTable.vue'
 import LiveRateChart from './components/LiveRateChart.vue'
 import SubscriptionQR from './components/SubscriptionQR.vue'
@@ -16,7 +17,7 @@ import TrafficChart from './components/TrafficChart.vue'
 type View = 'overview' | 'devices' | 'traffic'
 type Modal =
   | { type: 'create' }
-  | { type: 'rename' | 'toggle' | 'subscription'; device: Device }
+  | { type: 'rename' | 'toggle' | 'subscription' | 'destinations'; device: Device }
 
 const tabs = [
   { id: 'overview', text: '运行概览', icon: Gauge },
@@ -146,6 +147,7 @@ const modalTitle = computed(() => {
     case 'rename': return '重命名设备'
     case 'toggle': return modal.value.device.enabled ? '停用设备' : '启用设备'
     case 'subscription': return '设备订阅'
+    case 'destinations': return '访问记录'
     default: return ''
   }
 })
@@ -339,7 +341,7 @@ function handleModalError(error: unknown) {
 
 async function saveDevice() {
   const current = modal.value
-  if (!current || current.type === 'subscription' || modalBusy.value) return
+  if (!current || current.type === 'subscription' || current.type === 'destinations' || modalBusy.value) return
   const name = deviceName.value.trim()
   if (current.type !== 'toggle' && (!name || [...name].length > 48)) {
     modalError.value = '请输入 1 至 48 个字符的设备名称。'
@@ -619,6 +621,7 @@ onBeforeUnmount(() => {
             @rename="openModal({ type: 'rename', device: $event })"
             @toggle="openModal({ type: 'toggle', device: $event })"
             @traffic="openDeviceTraffic"
+            @destinations="openModal({ type: 'destinations', device: $event })"
           >
             <template #empty>
               <button v-if="!loading && !devices.length && !deviceError" class="button compact" type="button" @click="openModal({ type: 'create' })">
@@ -631,7 +634,7 @@ onBeforeUnmount(() => {
     </main>
   </div>
 
-  <dialog ref="dialog" class="modal" aria-labelledby="modal-title" @cancel="cancelDialog" @close="clearModal">
+  <dialog ref="dialog" class="modal" :class="{ 'destinations-modal': modal?.type === 'destinations' }" aria-labelledby="modal-title" @cancel="cancelDialog" @close="clearModal">
     <div v-if="modal" class="modal-body">
       <div class="modal-header">
         <h2 id="modal-title">{{ modalTitle }}</h2>
@@ -660,6 +663,15 @@ onBeforeUnmount(() => {
           </button>
         </footer>
       </form>
+
+      <DeviceDestinations
+        v-else-if="modal.type === 'destinations'"
+        :key="modal.device.id"
+        :device-id="modal.device.id"
+        :device-name="modal.device.name"
+        :time-zone="traffic?.timeZone"
+        @expired="showLogin('登录已过期，请重新登录。')"
+      />
 
       <div v-else-if="modal.type === 'subscription'" class="modal-form">
         <p class="muted">选择「{{ modal.device.name }}」使用的客户端。</p>

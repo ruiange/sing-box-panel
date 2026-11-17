@@ -30,7 +30,8 @@ fi
 
 web_dist="$project/web/dist"
 [[ -f "$web_dist/index.html" && -d "$web_dist/assets" ]] || fail '找不到前端构建产物，请先执行 pnpm --dir web build。'
-for script in install.sh upgrade.sh repair-node-control.sh; do
+scripts=(install.sh update.sh upgrade.sh repair-node-control.sh)
+for script in "${scripts[@]}"; do
     [[ -f "$project/deploy/$script" ]] || fail "找不到 deploy/${script}。"
 done
 
@@ -71,7 +72,7 @@ core_source=$(
         -o "$bundle/bin/sing-box-panel-core" ./cmd/sing-box
 )
 
-for script in install.sh upgrade.sh repair-node-control.sh; do
+for script in "${scripts[@]}"; do
     install -m 0755 "$project/deploy/$script" "$bundle/$script"
 done
 install -m 0644 "$web_dist/index.html" "$bundle/web/index.html"
@@ -79,7 +80,7 @@ cp -R -- "$web_dist/assets" "$bundle/web/assets"
 if [[ -f "$web_dist/favicon.svg" ]]; then
     install -m 0644 "$web_dist/favicon.svg" "$bundle/web/favicon.svg"
 fi
-for name in sing-box-panel.service sing-box-panel-node.service 49-sing-box-panel.rules check-node-restart.sh; do
+for name in sing-box-panel.service sing-box-panel-node.service 49-sing-box-panel.rules check-node-restart.sh dsb.sh; do
     install -m 0644 "$project/deploy/$name" "$bundle/deploy/$name"
 done
 install -m 0644 "$core_source/LICENSE" "$bundle/licenses/sing-box-LICENSE"
@@ -92,7 +93,7 @@ Build command: go build -mod=readonly -trimpath -buildvcs=false -tags $core_tags
 EOF
 
 archive="sing-box-panel-linux-$arch.tar.gz"
-COPYFILE_DISABLE=1 tar --format ustar -czf "$stage/$archive" -C "$bundle" install.sh upgrade.sh repair-node-control.sh bin web deploy licenses
+COPYFILE_DISABLE=1 tar --format ustar -czf "$stage/$archive" -C "$bundle" "${scripts[@]}" bin web deploy licenses
 (
     cd -- "$stage"
     "${checksum_command[@]}" "$archive" > "$archive.sha256"

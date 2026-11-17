@@ -42,7 +42,7 @@ var (
 
 func (p *Profiles) validate(basePort, statsPort int) error {
 	seen := map[int]bool{basePort: true, statsPort: true}
-	for _, port := range []int{p.Hysteria2, p.TUIC, p.ShadowTLS, p.Shadowsocks, p.Trojan, p.VMessWS, p.VLESSWSTLS, p.H2Reality, p.GRPCReality, p.AnyTLS, p.NaiveHTTP2, p.NaiveHTTP3} {
+	for _, port := range p.ports() {
 		if !validPort(port) || seen[port] {
 			return fmt.Errorf("多协议入站端口无效或冲突: %d", port)
 		}
@@ -64,6 +64,11 @@ func (p *Profiles) validate(basePort, statsPort int) error {
 		return fmt.Errorf("ShadowTLS 握手服务器名称无效")
 	}
 	return nil
+}
+
+func (p *Profiles) ports() []int {
+	return []int{p.Hysteria2, p.TUIC, p.ShadowTLS, p.Shadowsocks, p.Trojan, p.VMessWS,
+		p.VLESSWSTLS, p.H2Reality, p.GRPCReality, p.AnyTLS, p.NaiveHTTP2, p.NaiveHTTP3}
 }
 
 // Credentials remain stable across restarts and when a device is disabled and

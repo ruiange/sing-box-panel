@@ -102,6 +102,40 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Subscription' }
         default: { $ref: '#/components/responses/Error' }
+  /api/devices/{id}/destinations:
+    parameters:
+      - $ref: '#/components/parameters/DeviceID'
+    get:
+      summary: 分页查询设备的代理连接记录
+      description: 逐条记录经过节点的连接，按观察时间倒序返回。地址为域名或 IP 及端口。
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 100 }
+        - name: before
+          in: query
+          description: 使用上一页返回的 nextCursor 获取更早的记录。
+          schema: { type: string, maxLength: 256 }
+      responses:
+        '200':
+          description: 设备的代理连接记录
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - properties:
+                      data:
+                        type: object
+                        required: [items]
+                        properties:
+                          items:
+                            type: array
+                            items: { $ref: '#/components/schemas/Destination' }
+                          nextCursor:
+                            type: string
+                            description: 下一页游标。没有更早的记录时省略。
+        default: { $ref: '#/components/responses/Error' }
   /api/devices/{id}/subscription-qr:
     parameters:
       - $ref: '#/components/parameters/DeviceID'
@@ -239,6 +273,13 @@ components:
         name: { $ref: '#/components/schemas/DeviceName' }
         enabled: { type: boolean }
         createdAt: { type: string, format: date-time }
+    Destination:
+      type: object
+      required: [id, address, lastSeenAt]
+      properties:
+        id: { type: string, description: 设备内唯一的连接记录标识 }
+        address: { type: string, example: 'example.com:443' }
+        lastSeenAt: { type: string, format: date-time }
     ByteCount:
       type: string
       description: 字节数，使用十进制字符串避免大整数精度丢失。
