@@ -79,7 +79,7 @@ cp -R -- "$web_dist/assets" "$bundle/web/assets"
 if [[ -f "$web_dist/favicon.svg" ]]; then
     install -m 0644 "$web_dist/favicon.svg" "$bundle/web/favicon.svg"
 fi
-for name in sing-box-panel.service sing-box-panel-node.service 49-sing-box-panel.rules; do
+for name in sing-box-panel.service sing-box-panel-node.service 49-sing-box-panel.rules check-node-restart.sh; do
     install -m 0644 "$project/deploy/$name" "$bundle/deploy/$name"
 done
 install -m 0644 "$core_source/LICENSE" "$bundle/licenses/sing-box-LICENSE"

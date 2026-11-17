@@ -16,7 +16,7 @@ fi
 [[ $# -eq 0 ]] || die '请运行 sudo bash repair-node-control.sh，不带参数。'
 [[ $EUID -eq 0 ]] || die '请以 root 运行。'
 [[ $(uname -s) == Linux && -d /run/systemd/system ]] || die '请在运行 systemd 的 Linux 服务器执行。'
-for tool in awk flock runuser timeout; do
+for tool in awk flock setpriv timeout; do
     command -v "$tool" >/dev/null || die "找不到 ${tool}。"
 done
 [[ -x /usr/bin/pkcheck && -d /etc/polkit-1/rules.d ]] || die '缺少支持 JavaScript 规则的 polkit。'
@@ -27,8 +27,10 @@ panel_unit=$service.service
 node_unit=$service-node.service
 panel_env=/etc/sing-box-panel/panel.env
 rule_source=$stage/deploy/49-sing-box-panel.rules
+policy_check=$stage/deploy/check-node-restart.sh
 rule_path=/etc/polkit-1/rules.d/49-sing-box-panel.rules
-[[ -f $rule_source && ! -L $rule_source ]] || die '安装包缺少节点重启授权规则。'
+[[ -f $rule_source && ! -L $rule_source && -f $policy_check && ! -L $policy_check ]] ||
+    die '安装包缺少节点重启授权文件。'
 
 exec 9>/run/lock/sing-box-panel-upgrade.lock
 flock -n 9 || die '已有另一个升级或修复正在执行。'
@@ -75,15 +77,6 @@ ready() {
     fi
 }
 
-check_policy() {
-    timeout 3 runuser -u "$service" -- bash -c '
-        start_time=$(awk "{ print \$22 }" "/proc/$$/stat") || exit 1
-        [[ $start_time =~ ^[0-9]+$ ]] || exit 1
-        exec /usr/bin/pkcheck --action-id org.freedesktop.systemd1.manage-units \
-            --process "$$,$start_time,$UID" --detail unit "$1" --detail verb restart
-    ' bash "$node_unit"
-}
-
 atomic_install() {
     local source=$1 target=$2 mode=$3 temporary
     temporary=$(mktemp "${target%/*}/.sing-box-panel-repair.XXXXXXXX") || return 1
@@ -125,14 +118,7 @@ if [[ ! -e $rule_path ]]; then
     rule_added=true
     atomic_install "$rule_source" "$rule_path" 0644 || die '无法安装 polkit 规则。'
 fi
-# polkitd reloads changed rules asynchronously.
-for (( attempt = 0; attempt < 10; attempt++ )); do
-    if check_policy >/dev/null 2>&1; then
-        break
-    fi
-    sleep 1
-done
-(( attempt < 10 )) || die 'polkit 未授予节点重启权限，请查看 journalctl -u polkit.service。'
+bash "$policy_check" || die 'polkit 未授予节点重启权限，请查看 journalctl -u polkit.service。'
 
 printf '[修复 2/3] 更新面板的节点控制方式。\n' >&2
 if [[ $control != systemctl ]]; then

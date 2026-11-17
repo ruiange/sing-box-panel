@@ -87,7 +87,7 @@ fi
 [[ $EUID -eq 0 ]] || die '请用 sudo bash install.sh 执行。'
 [[ $(uname -s) == Linux && -d /run/systemd/system ]] ||
     die '请在运行 systemd 的 Linux VPS 上执行。'
-for tool in ss openssl getent install useradd groupadd runuser awk find timeout; do
+for tool in ss openssl getent install useradd groupadd setpriv awk find timeout; do
     command -v "$tool" >/dev/null || die "找不到 ${tool}，请先安装系统对应的软件包。"
 done
 [[ -x /usr/bin/systemctl && -x /usr/bin/pkcheck && -d /etc/polkit-1/rules.d ]] ||
@@ -95,7 +95,8 @@ done
 
 stage=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 for item in bin/sing-box-panel bin/sing-box-panel-core web/index.html \
-    deploy/sing-box-panel.service deploy/sing-box-panel-node.service deploy/49-sing-box-panel.rules; do
+    deploy/sing-box-panel.service deploy/sing-box-panel-node.service \
+    deploy/49-sing-box-panel.rules deploy/check-node-restart.sh; do
     [[ -f $stage/$item && ! -L $stage/$item ]] || die "安装包缺少 ${item}。"
 done
 [[ -x $stage/bin/sing-box-panel && -x $stage/bin/sing-box-panel-core && -d $stage/web/assets ]] ||
@@ -215,23 +216,7 @@ if ! getent passwd "$service" >/dev/null; then
     useradd --system --gid "$service" --home-dir "$state_dir" --shell /usr/sbin/nologin "$service"
 fi
 install -m 0644 -o root -g root "$stage/deploy/49-sing-box-panel.rules" "$polkit_rule"
-polkit_ready() {
-    systemctl start polkit.service || return 1
-    local attempt
-    for ((attempt = 0; attempt < 5; attempt++)); do
-        if timeout 3 runuser -u "$service" -- bash -c '
-            start_time=$(awk "{ print \$22 }" "/proc/$$/stat") || exit 1
-            [[ $start_time =~ ^[0-9]+$ ]] || exit 1
-            exec /usr/bin/pkcheck --action-id org.freedesktop.systemd1.manage-units \
-                --process "$$,$start_time,$UID" --detail unit sing-box-panel-node.service --detail verb restart
-        ' >/dev/null 2>&1; then
-            return 0
-        fi
-        sleep 1
-    done
-    return 1
-}
-if ! polkit_ready; then
+if ! bash "$stage/deploy/check-node-restart.sh"; then
     rm -f -- "$polkit_rule"
     die 'polkit 未授予节点重启权限。请确认支持 JavaScript 规则，并查看 journalctl -u polkit。'
 fi
