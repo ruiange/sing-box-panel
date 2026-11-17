@@ -1,0 +1,22 @@
+[Unit]
+Description=Sing-Box Panel managed VLESS node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sing-box-panel
+Group=sing-box-panel
+UMask=0077
+WorkingDirectory=/var/lib/sing-box-panel
+ExecStart=/usr/local/bin/sing-box-panel-core run -c /var/lib/sing-box-panel/node.json
+Restart=on-failure
+RestartSec=2s
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true

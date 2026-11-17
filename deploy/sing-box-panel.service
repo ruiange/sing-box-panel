@@ -1,0 +1,32 @@
+[Unit]
+Description=Sing-Box Panel
+After=network-online.target dbus.service
+Wants=network-online.target dbus.service
+
+[Service]
+Type=simple
+User=sing-box-panel
+Group=sing-box-panel
+UMask=0077
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+StateDirectory=sing-box-panel
+StateDirectoryMode=0700
+WorkingDirectory=/var/lib/sing-box-panel
+EnvironmentFile=/etc/sing-box-panel/panel.env
+ExecStart=/usr/local/bin/sing-box-panel
+Restart=on-failure
+RestartSec=3s
+TimeoutStopSec=100s
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadOnlyPaths=/opt/sing-box-panel/web
+ReadWritePaths=/var/lib/sing-box-panel
+
+[Install]
+WantedBy=multi-user.target

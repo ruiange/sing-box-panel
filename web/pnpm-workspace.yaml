@@ -1,0 +1,4 @@
+# Keep this frontend independent when the Go project is nested in another workspace.
+packages: []
+allowBuilds:
+  esbuild: true

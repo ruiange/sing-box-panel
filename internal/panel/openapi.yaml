@@ -1,0 +1,389 @@
+openapi: 3.0.3
+info:
+  title: Sing-Box Panel
+  version: 0.1.0
+  description: 单节点设备、订阅与流量统计。管理接口的 code 为 0 时表示成功，错误时使用 HTTP 状态码且 data 为 null。
+security:
+  - session: []
+paths:
+  /api/auth/session:
+    get:
+      summary: 查询管理员会话
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+  /api/auth/login:
+    post:
+      summary: 管理员登录并写入会话 Cookie
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [password]
+              properties:
+                password: { type: string, format: password }
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        default: { $ref: '#/components/responses/Error' }
+  /api/auth/logout:
+    post:
+      summary: 清理当前会话
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Session' }
+        default: { $ref: '#/components/responses/Error' }
+  /api/devices:
+    get:
+      summary: 查询设备列表
+      responses:
+        '200':
+          description: 设备列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/Device' }
+        default: { $ref: '#/components/responses/Error' }
+    post:
+      summary: 添加一台设备并启用其代理凭据
+      description: 提交结果未知时，用相同名称和 requestId 重试。已完成的请求会返回同一台设备。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name: { $ref: '#/components/schemas/DeviceName' }
+                requestId:
+                  type: string
+                  format: uuid
+                  pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+                  description: 客户端为本次创建生成的小写 UUID v4，用于确认结果和安全重试。
+      responses:
+        '200': { $ref: '#/components/responses/Device' }
+        '201': { $ref: '#/components/responses/Device' }
+        '409': { $ref: '#/components/responses/Error' }
+        default: { $ref: '#/components/responses/Error' }
+  /api/devices/{id}:
+    parameters:
+      - $ref: '#/components/parameters/DeviceID'
+    patch:
+      summary: 修改设备名称或启停状态
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                name: { $ref: '#/components/schemas/DeviceName' }
+                enabled: { type: boolean }
+      responses:
+        '200': { $ref: '#/components/responses/Device' }
+        default: { $ref: '#/components/responses/Error' }
+  /api/devices/{id}/subscription:
+    parameters:
+      - $ref: '#/components/parameters/DeviceID'
+    get:
+      summary: 查询启用设备的订阅地址
+      responses:
+        '200': { $ref: '#/components/responses/Subscription' }
+        default: { $ref: '#/components/responses/Error' }
+  /api/devices/{id}/subscription-qr:
+    parameters:
+      - $ref: '#/components/parameters/DeviceID'
+    get:
+      summary: 生成启用设备的订阅二维码
+      parameters:
+        - name: format
+          in: query
+          schema: { type: string, enum: [v2ray, shadowrocket, clash, sing-box] }
+      responses:
+        '200':
+          description: 包含订阅 URL 的二维码
+          content:
+            image/png:
+              schema: { type: string, format: binary }
+        default: { $ref: '#/components/responses/Error' }
+  /api/devices/{id}/rotate-subscription:
+    parameters:
+      - $ref: '#/components/parameters/DeviceID'
+    post:
+      summary: 轮换订阅令牌并作废旧地址
+      description: 已经导入客户端的代理凭据仍可使用。停用设备可撤销该设备的接入权限。
+      responses:
+        '200': { $ref: '#/components/responses/Subscription' }
+        default: { $ref: '#/components/responses/Error' }
+  /api/traffic:
+    get:
+      summary: 查询全局或单设备用量，支持日趋势和小时趋势
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, enum: [7, 30], default: 7 }
+        - name: hours
+          in: query
+          description: 小时趋势范围，包含当前小时。省略时 hourly 为空数组。
+          schema: { type: integer, enum: [6, 12, 24, 48, 72] }
+        - name: deviceId
+          in: query
+          description: 指定设备 ID 后，返回该设备的汇总、日趋势和所请求的小时趋势
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: 流量统计
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - properties:
+                      data: { $ref: '#/components/schemas/Traffic' }
+        default: { $ref: '#/components/responses/Error' }
+  /api/traffic/live:
+    get:
+      summary: 通过 WebSocket 订阅实时速率和设备活跃状态
+      description: |
+        通过同源 WebSocket 握手，沿用登录会话 Cookie。初次连接会收到全部启用设备的当前速率。
+        发送 `{"type":"subscribe","deviceId":"设备 UUID"}` 后，同一连接也返回对应设备近 60 秒的采样。
+        发送空字符串作为 `deviceId` 可取消这项历史订阅。
+        服务端文本消息按 `{code,data,message}` 返回，速率为每秒字节数，`at: null` 表示当前采样不可用。
+        `presence` 根据设备的代理流量判断活跃。最近 60 秒内观察到字节增量时为 `active`，正常采样但未看到近期增量时为 `idle`，当前缺少有效样本时为 `unknown`。
+        采样暂不可用时仍可返回已记录的 `lastActiveAt`。启用或停用状态通过设备列表查询。
+        会话过期或从其他标签页退出后，服务端以 4001 关闭连接。
+      x-websocket-message: { $ref: '#/components/schemas/LiveTraffic' }
+      responses:
+        '101': { description: WebSocket 握手成功 }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        default: { $ref: '#/components/responses/Error' }
+  /sub/{token}:
+    parameters:
+      - $ref: '#/components/parameters/Token'
+    get:
+      summary: 下载 Base64 编码的设备节点列表
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/SubscriptionFile' }
+        '404': { description: 令牌无效、已撤销或设备已停用 }
+        '503': { description: 订阅暂不可用 }
+  /sub/{token}/{format}:
+    parameters:
+      - $ref: '#/components/parameters/Token'
+      - name: format
+        in: path
+        required: true
+        schema: { type: string, enum: [v2ray, shadowrocket, clash, sing-box] }
+    get:
+      summary: 下载指定格式的订阅文件
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/SubscriptionFile' }
+        '404': { description: 令牌、设备状态或订阅格式无效 }
+        '503': { description: 订阅暂不可用 }
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: sing_box_panel_session
+  parameters:
+    DeviceID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Token:
+      name: token
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+  schemas:
+    Success:
+      type: object
+      required: [code, data, message]
+      properties:
+        code: { type: integer, enum: [0] }
+        data: {}
+        message: { type: string, example: success }
+    Error:
+      type: object
+      required: [code, data, message]
+      properties:
+        code: { type: integer, example: 401 }
+        data: { type: object, nullable: true, enum: [null] }
+        message: { type: string, example: 请先登录 }
+    DeviceName:
+      type: string
+      minLength: 1
+      maxLength: 48
+      example: 我的手机
+    Device:
+      type: object
+      required: [id, name, enabled, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { $ref: '#/components/schemas/DeviceName' }
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    ByteCount:
+      type: string
+      description: 字节数，使用十进制字符串避免大整数精度丢失。
+      pattern: '^[0-9]+$'
+      example: '123456'
+    Usage:
+      type: object
+      required: [upload, download]
+      properties:
+        upload: { $ref: '#/components/schemas/ByteCount' }
+        download: { $ref: '#/components/schemas/ByteCount' }
+    UsagePeriods:
+      type: object
+      required: [today, month, all]
+      properties:
+        today: { $ref: '#/components/schemas/Usage' }
+        month: { $ref: '#/components/schemas/Usage' }
+        all: { $ref: '#/components/schemas/Usage' }
+    Traffic:
+      type: object
+      required: [timeZone, collectedAt, collectorStatus, totals, daily, hourly, hourlySince, devices]
+      properties:
+        timeZone: { type: string, example: Asia/Shanghai }
+        collectedAt: { type: string, format: date-time, nullable: true }
+        collectorStatus: { type: string, enum: [waiting, ok, error] }
+        totals: { $ref: '#/components/schemas/UsagePeriods' }
+        daily:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Usage'
+              - required: [date]
+                properties:
+                  date: { type: string, format: date }
+        hourlySince:
+          type: string
+          format: date-time
+          nullable: true
+          description: 小时采集基线的时间，使用统计时区。尚未首次采集时为 null。
+        hourly:
+          type: array
+          description: 字节差额归入采集时刻所在的小时。缺少采样的小时不返回，正常采样且无流量时返回零值。
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Usage'
+              - required: [at]
+                properties:
+                  at: { type: string, format: date-time, description: 小时桶起点（统计时区） }
+        devices:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/UsagePeriods'
+              - required: [id]
+                properties:
+                  id: { type: string, format: uuid }
+    LiveSpeed:
+      type: object
+      required: [upload, download]
+      properties:
+        upload: { type: number, minimum: 0, description: 每秒上传字节数 }
+        download: { type: number, minimum: 0, description: 每秒下载字节数 }
+    DevicePresence:
+      type: object
+      required: [state, lastActiveAt]
+      properties:
+        state: { type: string, enum: [active, idle, unknown] }
+        lastActiveAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: 最近一次观察到设备上传或下载字节数增加的采样时间。首次观察到之前为 null。
+    LiveTraffic:
+      allOf:
+        - $ref: '#/components/schemas/Success'
+        - properties:
+            data:
+              type: object
+              required: [at, devices, deviceId, history, presence]
+              properties:
+                at: { type: string, format: date-time, nullable: true }
+                devices:
+                  type: object
+                  description: 以设备 UUID 为键的有效速率。计数器重置等情况下可能没有对应设备的速率。
+                  additionalProperties: { $ref: '#/components/schemas/LiveSpeed' }
+                deviceId: { type: string, description: 当前订阅的设备 UUID。空值表示未订阅。 }
+                presence:
+                  type: object
+                  description: 以设备 UUID 为键。缺少设备条目时活跃状态未知。
+                  additionalProperties: { $ref: '#/components/schemas/DevicePresence' }
+                history:
+                  type: array
+                  items:
+                    allOf:
+                      - $ref: '#/components/schemas/LiveSpeed'
+                      - required: [at]
+                        properties:
+                          at: { type: string, format: date-time }
+  responses:
+    Session:
+      description: 会话状态
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Success'
+              - properties:
+                  data:
+                    type: object
+                    required: [authenticated]
+                    properties:
+                      authenticated: { type: boolean }
+    Device:
+      description: 设备信息
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Success'
+              - properties:
+                  data: { $ref: '#/components/schemas/Device' }
+    Subscription:
+      description: 设备订阅链接
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Success'
+              - properties:
+                  data:
+                    type: object
+                    required: [url]
+                    properties:
+                      url: { type: string, format: uri }
+    SubscriptionFile:
+      description: 客户端可直接导入的原始文件
+      content:
+        text/plain:
+          schema: { type: string, format: byte }
+        application/yaml:
+          schema: { type: object, additionalProperties: true }
+        application/json:
+          schema: { type: object, additionalProperties: true }
+    Error:
+      description: 请求失败
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
