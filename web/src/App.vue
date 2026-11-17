@@ -450,7 +450,7 @@ onBeforeUnmount(() => {
     <div class="login-visual" aria-hidden="true">
       <div class="login-grid"></div>
       <div class="signal-orbits"><i></i><i></i><i></i><span><RadioTower :size="62" /></span></div>
-      <div class="login-brand"><span class="brand-mark"><Cable :size="23" /></span><strong>流量大师</strong></div>
+      <div class="login-brand"><span class="brand-mark"><Cable :size="23" /></span><strong>趣多多流量冠军</strong></div>
     </div>
     <main class="login-main">
       <form v-if="stage === 'login'" class="login-form" @submit.prevent="login">
@@ -469,9 +469,9 @@ onBeforeUnmount(() => {
   </div>
   <div v-else class="workspace">
     <aside class="sidebar">
-      <a class="brand" href="#overview" aria-label="流量大师面板概览">
+      <a class="brand" href="#overview" aria-label="趣多多流量冠军面板概览">
         <span class="brand-mark"><Cable :size="22" aria-hidden="true" /></span>
-        <span><strong>流量大师</strong><small>设备控制台</small></span>
+        <span><strong>趣多多流量冠军</strong><small>设备控制台</small></span>
       </a>
       <nav class="nav" aria-label="面板导航">
         <a v-for="tab in tabs" :key="tab.id" :href="'#' + tab.id" :class="{ active: view === tab.id }" :aria-current="view === tab.id ? 'page' : undefined">

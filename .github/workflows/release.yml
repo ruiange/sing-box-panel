@@ -255,9 +255,14 @@ jobs:
 
           assert subprocess.check_output([dsb, "1"], text=True).strip() == release
           menu = subprocess.check_output([dsb], input="1\n", text=True)
-          assert all(f"({number})" in menu for number in range(5))
+          assert all(f"({number})" in menu for number in range(7))
+          assert "趣多多流量冠军" in menu
           assert menu.rstrip().endswith(release)
-          assert release not in subprocess.check_output([dsb], input="0\n", text=True)
+          farewell = "我是趣多多 我为你的流量护航～"
+          assert subprocess.check_output([dsb, "0"], text=True).rstrip("\n") == farewell
+          assert subprocess.check_output([dsb], input="0\n", text=True).rstrip("\n").endswith(farewell)
+          assert subprocess.check_output([dsb, "5"], text=True).rstrip("\n") == "后台管理员密码：" + password
+          assert subprocess.check_output([dsb, "6"], text=True).rstrip("\n") == "后台地址：http://8.8.8.8:19443"
 
           # Test the menu's query and download arguments without contacting a live release.
           with TemporaryDirectory() as directory:

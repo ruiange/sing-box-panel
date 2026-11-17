@@ -18,7 +18,7 @@ const scalarHTML = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sing-Box Panel · 接口文档</title>
+  <title>趣多多流量冠军 · 接口文档</title>
 </head>
 <body>
   <div id="reference"></div>

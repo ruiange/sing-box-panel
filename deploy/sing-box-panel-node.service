@@ -1,5 +1,5 @@
 [Unit]
-Description=Sing-Box Panel managed VLESS node
+Description=趣多多流量冠军 · 代理节点
 After=network-online.target
 Wants=network-online.target
 

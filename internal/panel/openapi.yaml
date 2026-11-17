@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Sing-Box Panel
+  title: 趣多多流量冠军
   version: 0.1.0
   description: 单节点设备、订阅与流量统计。管理接口的 code 为 0 时表示成功，错误时使用 HTTP 状态码且 data 为 null。
 security:

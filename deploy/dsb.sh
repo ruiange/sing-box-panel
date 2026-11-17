@@ -9,17 +9,19 @@ launcher_url=https://github.com/ruiange/sing-box-panel/releases/latest/download/
 
 menu() {
     printf '%s\n' \
-        '============== 流量大师 ==============' \
+        '============== 趣多多流量冠军 ==============' \
         '(1) 查看当前版本' \
         '(2) 查询最新版本' \
         '(3) 下载最新安装包' \
         '(4) 一键升级到最新版本' \
+        '(5) 查看后台密码' \
+        '(6) 查看后台地址' \
         '(0) 退出' \
-        '======================================'
+        '============================================'
 }
 
 usage() {
-    printf '%s\n' '用法：dsb [0|1|2|3 [下载目录]|4]' '运行 dsb 打开菜单，也可直接传入编号。'
+    printf '%s\n' '用法：dsb [0|1|2|3 [下载目录]|4|5|6]' '运行 dsb 打开菜单，也可直接传入编号。'
 }
 
 usage_error() {
@@ -29,7 +31,7 @@ usage_error() {
 
 run_panel() {
     if [[ ! -x $panel ]]; then
-        printf '%s\n' '找不到流量大师程序，请先安装面板。' >&2
+        printf '%s\n' '找不到趣多多流量冠军程序，请先安装面板。' >&2
         exit 1
     fi
     exec "$panel" "$@"
@@ -97,10 +99,41 @@ upgrade() (
     bash "$stage/install-from-release.sh" --upgrade
 )
 
+show_setting() {
+    local key=$1 label=$2 number=$3 config=/etc/sing-box-panel/panel.env
+    if [[ $EUID -ne 0 ]]; then
+        printf '查看%s需要 root 权限，请运行 sudo dsb %s。\n' "$label" "$number" >&2
+        return 1
+    fi
+    if [[ ! -f $config || ! -r $config ]]; then
+        printf '无法读取面板配置 %s。\n' "$config" >&2
+        return 1
+    fi
+    if ! awk -v key="$key" -v label="$label" '
+        $0 ~ ("^[[:blank:]]*" key "[[:blank:]]*=") {
+            value = substr($0, index($0, "=") + 1)
+            sub(/^[[:blank:]]+/, "", value)
+            sub(/[[:blank:]\r]+$/, "", value)
+            quote = substr(value, 1, 1)
+            if ((quote == "\"" || quote == "\047") && length(value) >= 2 &&
+                substr(value, length(value)) == quote) {
+                value = substr(value, 2, length(value) - 2)
+            }
+        }
+        END {
+            if (value == "") exit 1
+            printf "%s：%s\n", label, value
+        }
+    ' "$config"; then
+        printf '未能读取%s。\n' "$label" >&2
+        return 1
+    fi
+}
+
 if [[ $# -eq 0 ]]; then
     menu
     if [[ -t 0 ]]; then
-        read -r -p '请输入命令编号（0-4）：' choice || exit 0
+        read -r -p '请输入命令编号（0-6）：' choice || exit 0
     else
         read -r -t 1 choice || exit 0
     fi
@@ -112,10 +145,12 @@ fi
 
 case "$1" in
     -h|--help) usage ;;
-    0) exit 0 ;;
+    0) printf '%s\n' '我是趣多多 我为你的流量护航～' ;;
     1) run_panel version ;;
     2) run_panel latest ;;
     3) shift; run_panel download "$@" ;;
     4) upgrade ;;
+    5) show_setting PANEL_ADMIN_PASSWORD 后台管理员密码 5 ;;
+    6) show_setting PANEL_PUBLIC_URL 后台地址 6 ;;
     *) usage_error ;;
 esac

@@ -52,7 +52,7 @@ svg { flex-shrink: 0; }
   border-right: 1px solid var(--line);
   padding: 27px 15px 17px;
 }
-.brand { display: flex; align-items: center; gap: 12px; padding: 0 10px; }
+.brand { display: flex; align-items: center; gap: 12px; padding: 0 8px; }
 .brand-mark {
   display: grid;
   place-items: center;
@@ -398,13 +398,16 @@ svg { flex-shrink: 0; }
 }
 @media (max-width: 1000px) {
   .workspace { grid-template-columns: 178px minmax(0, 1fr); }
+  .brand { gap: 8px; padding: 0; }
+  .brand .brand-mark { width: 32px; height: 32px; }
+  .brand strong { font-size: 15px; }
   .topbar { padding: 0 22px; }
   .content { padding: 26px 22px; }
 }
 @media (max-width: 740px) {
   .workspace { display: block; }
   .sidebar { position: static; height: auto; padding: 12px 15px 0; border-right: 0; border-bottom: 1px solid var(--line); }
-  .brand { padding: 0; }
+  .brand { gap: 12px; }
   .brand-mark { width: 32px; height: 32px; }
   .brand strong { font-size: 16px; }
   .brand small { margin-top: 2px; }
