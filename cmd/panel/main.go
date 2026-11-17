@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -20,17 +19,7 @@ import (
 
 func main() {
 	if len(os.Args) > 1 {
-		if len(os.Args) != 3 || os.Args[1] != "validate-address" {
-			fmt.Fprintln(os.Stderr, "用法：sing-box-panel [validate-address 公网IP]")
-			os.Exit(2)
-		}
-		address, err := panel.PublicIP(os.Args[2])
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(2)
-		}
-		fmt.Println(address)
-		return
+		os.Exit(runCommand(os.Args[1:]))
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := run(logger); err != nil {

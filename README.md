@@ -28,13 +28,26 @@ pnpm --dir web dev
 
 ## Linux 一键部署
 
-在运行 systemd 的 Ubuntu 24.04 或更新版本、Debian 12 或更新版本的新服务器上，用 root 执行下列命令。此入口使用 GitHub 上已发布的版本。本地修复包使用后面的离线部署命令。
+在运行 systemd 的 Ubuntu 24.04 或更新版本、Debian 12 或更新版本的新服务器上，用 root 执行下列命令。它会从 GitHub Release 的 `latest` 入口安装当前发布版本。
 
 ```bash
 sbp=$(curl -qfsSL https://github.com/ruiange/sing-box-panel/releases/latest/download/install-from-release.sh) && bash -c "$sbp"
 ```
 
 引导脚本会显示下载安装包的进度，并逐步打印环境检查、SHA-256 校验、解压、公网 IP、系统依赖和服务启动状态。脚本自动选择 Linux amd64 或 arm64 安装包。有多个公网地址，或服务器的出口与入口 IP 不同时，可将 `bash -c "$sbp"` 改为 `bash -c "$sbp" -- 203.0.113.10` 并换成实际公网 IP。默认使用 HTTP `9443` 提供后台，启用从 `8443` 开始的 13 个节点。两个服务及就绪检查通过后会打印后台地址和新生成的管理员密码。云安全组与防火墙需要放行下方表格所列的节点端口，以及 TCP `9443`。
+
+## 查看版本与下载安装包
+
+从 `v0.1.3` 起，安装后的 `sing-box-panel` 支持以下命令。
+
+```bash
+sing-box-panel version         # 显示当前面板二进制的版本
+sing-box-panel latest          # 查询 GitHub 上最新的面板 Release
+sing-box-panel download        # 下载本机架构的最新安装包到当前目录
+sing-box-panel download /tmp   # 下载到指定目录
+```
+
+`download` 支持 Linux `amd64` 和 `arm64`，按 GitHub Release 记录校验安装包的 SHA-256，并将压缩包保存到指定的现有目录。需要解压和安装时，可使用下文的离线部署步骤。直接用 `go build` 编译且未注入版本号时，`version` 显示 `dev`。
 
 ## 制作安装包与离线部署
 
@@ -44,8 +57,6 @@ sbp=$(curl -qfsSL https://github.com/ruiange/sing-box-panel/releases/latest/down
 bash deploy/package.sh amd64
 # ARM VPS 改用 bash deploy/package.sh arm64
 ```
-
-GitHub Release 需要上传引导脚本 `install-from-release.sh`、两个架构的安装包及各自的 `.tar.gz.sha256` 文件。发布前，在引导脚本的发布副本中将 `bundled_version=` 填为本次标签，使安装包和校验文件来自同一版本。发布时也应提供安装包所用的 sing-box 源码和构建说明。引导脚本可通过 `--repo` 指定发布仓库，通过 `--version` 指定 Release 标签。
 
 将 `bin/sing-box-panel-linux-amd64.tar.gz` 上传到 VPS，在上传目录执行：
 
@@ -65,6 +76,12 @@ sudo bash install.sh --http --multiprotocol 203.0.113.10
 安装脚本面向首次部署，遇到已有同名配置或端口占用会停止。数据位于 `/var/lib/sing-box-panel`。管理员密码在 `/etc/sing-box-panel/panel.env` 中，文件由 root 读取。服务未就绪时可运行 `sudo journalctl -u sing-box-panel.service -u sing-box-panel-node.service -u polkit -n 80`。
 
 如果旧版安装后面板日志显示 `sing-box 应用配置失败: exit status 1`，并确认 systemd 沙箱的 `NoNewPrivileges` 阻止了 `sudo`，可从修复后的安装包解压并运行 `sudo bash repair-node-control.sh`。脚本会备份环境文件，并将节点重启切换到 polkit 授权，沿用原有数据库、面板密码和节点凭据。
+
+## GitHub 自动发布
+
+先推送待发布的提交，再推送形如 `vX.Y.Z` 的版本标签，触发 [发布工作流](.github/workflows/release.yml)。GitHub Actions 构建前端、运行 Go 测试，并构建 Linux `amd64` 和 `arm64` 两个安装包。工作流将版本标签写入面板二进制和安装引导脚本，使引导使用同一 Release 的安装包与校验文件。
+
+两种架构的安装包、各自的 `.tar.gz.sha256`、`install-from-release.sh` 和对应的 sing-box 核心源码上传完成后，工作流公开该 Release 并将其标记为 Latest。需要手动选择发行版或镜像仓库时，可在引导脚本中使用 `--version` 或 `--repo`。
 
 ## 启用截图中的 13 个节点
 

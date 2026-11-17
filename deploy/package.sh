@@ -10,6 +10,10 @@ arch=${1:-amd64}
 if [[ $# -gt 1 || ( "$arch" != amd64 && "$arch" != arm64 ) ]]; then
     fail '用法：bash deploy/package.sh [amd64|arm64]'
 fi
+panel_version=${PANEL_VERSION:-dev}
+if [[ $panel_version != dev && ! $panel_version =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    fail 'PANEL_VERSION 格式须为 v主版本.次版本.修订号，例如 v0.1.3。'
+fi
 
 project=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 go_command=$(command -v "${GO:-go}") || fail '需要 Go 1.26.0 或更新版本，请将 go 加入 PATH，或通过 GO 指定可执行文件。'
@@ -42,11 +46,12 @@ trap 'rm -rf -- "$stage"' EXIT
 bundle="$stage/bundle"
 mkdir -p -- "$bundle/bin" "$bundle/web" "$bundle/deploy" "$bundle/licenses"
 
-printf '构建 Linux %s 面板…\n' "$arch"
+printf '构建 Linux %s 面板 %s…\n' "$arch" "$panel_version"
 (
     cd -- "$project"
     GOWORK=off CGO_ENABLED=0 GOOS=linux GOARCH="$arch" "$go_command" build \
-        -mod=readonly -trimpath -buildvcs=false -ldflags '-s -w' -o "$bundle/bin/sing-box-panel" ./cmd/panel
+        -mod=readonly -trimpath -buildvcs=false -ldflags "-s -w -X main.version=$panel_version" \
+        -o "$bundle/bin/sing-box-panel" ./cmd/panel
 )
 
 printf '校验并构建 sing-box %s…\n' "$core_version"
