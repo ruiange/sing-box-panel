@@ -1,20 +1,21 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
-  Activity, ArrowDown, ArrowRight, ArrowUp, Cable, CircleAlert, Clipboard, FileCode, Gauge,
+  Activity, ArrowDown, ArrowRight, ArrowUp, Cable, CircleAlert, Clipboard, FileCode, Gauge, Globe,
   Link2, LockKeyhole, LogOut, Plus, RadioTower, RefreshCw, Search, Smartphone, X,
 } from 'lucide-vue-next'
 import { api, APIError, errorMessage, type Device, type Traffic } from './api'
 import { beginDeviceCreation, confirmDeviceCreations, hasPendingDeviceCreation, submitDeviceCreation, type DeviceCreateRequest } from './deviceCreation'
 import { formatBytes, formatRate, formatTime, totalUsage } from './format'
 import { useLiveTraffic } from './useLiveTraffic'
+import AccessSettings from './components/AccessSettings.vue'
 import DeviceDestinations from './components/DeviceDestinations.vue'
 import DeviceTable from './components/DeviceTable.vue'
 import LiveRateChart from './components/LiveRateChart.vue'
 import SubscriptionQR from './components/SubscriptionQR.vue'
 import TrafficChart from './components/TrafficChart.vue'
 
-type View = 'overview' | 'devices' | 'traffic'
+type View = 'overview' | 'devices' | 'traffic' | 'access'
 type Modal =
   | { type: 'create' }
   | { type: 'rename' | 'toggle' | 'subscription' | 'destinations'; device: Device }
@@ -23,6 +24,7 @@ const tabs = [
   { id: 'overview', text: '运行概览', icon: Gauge },
   { id: 'devices', text: '设备管理', icon: Smartphone },
   { id: 'traffic', text: '流量统计', icon: Activity },
+  { id: 'access', text: '域名与证书', icon: Globe },
 ] as const
 const periods = [
   { key: 'today', title: '今日用量' },
@@ -154,7 +156,7 @@ const modalTitle = computed(() => {
 
 function readLocation() {
   const [target, params] = window.location.hash.slice(1).split('?')
-  if (target === 'overview' || target === 'devices' || target === 'traffic') view.value = target
+  if (target === 'overview' || target === 'devices' || target === 'traffic' || target === 'access') view.value = target
   else view.value = 'overview'
   selectedDeviceId.value = target === 'traffic' ? new URLSearchParams(params).get('deviceId') ?? '' : ''
 }
@@ -492,8 +494,8 @@ onBeforeUnmount(() => {
       <header class="topbar">
         <span class="topbar-title"><span class="status-dot"></span>{{ pageTitle }}</span>
         <div class="topbar-actions">
-          <span class="badge" :class="collection.tone"><span class="status-dot"></span>{{ collection.label }}</span>
-          <button class="icon-button refresh" type="button" aria-label="刷新数据" title="刷新数据" :disabled="loading" @click="refresh">
+          <span v-if="view !== 'access'" class="badge" :class="collection.tone"><span class="status-dot"></span>{{ collection.label }}</span>
+          <button v-if="view !== 'access'" class="icon-button refresh" type="button" aria-label="刷新数据" title="刷新数据" :disabled="loading" @click="refresh">
             <RefreshCw :size="16" :class="{ spinning: loading }" aria-hidden="true" />
           </button>
           <a href="/docs" class="icon-button mobile-action" aria-label="接口文档" title="接口文档"><FileCode :size="16" aria-hidden="true" /></a>
@@ -502,7 +504,10 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </header>
-      <div class="content">
+      <div v-if="view === 'access'" class="content">
+        <AccessSettings @expired="showLogin('登录已过期，请重新登录。')" />
+      </div>
+      <div v-else class="content">
         <div class="page-heading">
           <div>
             <h1>{{ pageTitle }}</h1>

@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: 趣多多流量冠军
   version: 0.1.0
-  description: 单节点设备、订阅与流量统计。管理接口的 code 为 0 时表示成功，错误时使用 HTTP 状态码且 data 为 null。
+  description: 单节点设备、订阅、流量统计与面板 HTTPS 配置。管理接口的 code 为 0 时表示成功，错误时使用 HTTP 状态码且 data 为 null。
 security:
   - session: []
 paths:
@@ -35,6 +35,24 @@ paths:
       security: []
       responses:
         '200': { $ref: '#/components/responses/Session' }
+        default: { $ref: '#/components/responses/Error' }
+  /api/settings/access:
+    get:
+      summary: 查询后台域名与证书设置
+      description: 返回可用状态、访问地址和证书到期时间，不返回证书私钥。
+      responses:
+        '200': { $ref: '#/components/responses/AccessSettings' }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      summary: 更新后台域名与证书设置
+      description: 网页设置适用于公网 IP + HTTP 直连部署。自动签发使用 TLS-ALPN-01；提交手动证书与私钥需要 HTTPS。原 HTTP 入口和 IP 订阅链接仍可使用。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccessUpdate' }
+      responses:
+        '200': { $ref: '#/components/responses/AccessSettings' }
         default: { $ref: '#/components/responses/Error' }
   /api/devices:
     get:
@@ -260,6 +278,44 @@ components:
         code: { type: integer, example: 401 }
         data: { type: object, nullable: true, enum: [null] }
         message: { type: string, example: 请先登录 }
+    AccessMode:
+      type: string
+      enum: [off, auto, manual]
+      description: off 关闭域名访问；auto 自动申请与续期；manual 使用导入的证书。
+    AccessUpdate:
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode: { $ref: '#/components/schemas/AccessMode' }
+        domain:
+          type: string
+          format: hostname
+          example: panel.example.com
+          description: 自动申请与导入模式必填。填写要绑定的域名。
+        certificate:
+          type: string
+          maxLength: 65536
+          writeOnly: true
+          description: 导入模式必填。PEM 格式的完整证书链。
+        privateKey:
+          type: string
+          format: password
+          maxLength: 65536
+          writeOnly: true
+          description: 导入模式必填。与站点证书匹配的未加密 PEM 私钥。
+    AccessSettings:
+      type: object
+      required: [available, mode, manualUploadAllowed]
+      properties:
+        available: { type: boolean, description: 当前部署是否支持网页配置域名。 }
+        mode: { $ref: '#/components/schemas/AccessMode' }
+        domain: { type: string, format: hostname, example: panel.example.com }
+        httpsUrl: { type: string, format: uri, example: 'https://panel.example.com' }
+        fallbackUrl: { type: string, format: uri, example: 'http://203.0.113.10:9443' }
+        expiresAt: { type: string, format: date-time, description: 已知时返回证书到期时间。 }
+        manualUploadAllowed: { type: boolean, description: 当前连接是否允许提交证书私钥。 }
+        warning: { type: string, description: 可选的设置状态提示。 }
     DeviceName:
       type: string
       minLength: 1
@@ -379,6 +435,15 @@ components:
                         properties:
                           at: { type: string, format: date-time }
   responses:
+    AccessSettings:
+      description: 后台域名与证书设置
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Success'
+              - properties:
+                  data: { $ref: '#/components/schemas/AccessSettings' }
     Session:
       description: 会话状态
       content:

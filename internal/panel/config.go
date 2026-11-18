@@ -244,6 +244,17 @@ func validHost(host string) bool {
 	return net.ParseIP(host) != nil || validDNSName(host)
 }
 
+// NormalizeHTTPSDomain validates the ASCII DNS name used for HTTPS and returns
+// it in the same form used by browser origins. International names use Punycode.
+func NormalizeHTTPSDomain(value string) (string, error) {
+	host := strings.TrimSpace(value)
+	dot := strings.LastIndexByte(host, '.')
+	if dot < 0 || !validDNSName(host) || net.ParseIP(host) != nil || !strings.ContainsAny(host[dot+1:], "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+		return "", fmt.Errorf("请输入有效的域名（不含协议、端口、路径或通配符）")
+	}
+	return strings.ToLower(host), nil
+}
+
 func validDNSName(host string) bool {
 	if len(host) == 0 || len(host) > 253 {
 		return false

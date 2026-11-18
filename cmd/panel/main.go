@@ -82,6 +82,8 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	closeDomainAccess := service.StartDomainAccess(ctx, httpServer.Handler)
+	defer closeDomainAccess()
 
 	serverErr := make(chan error, 1)
 	go func() {

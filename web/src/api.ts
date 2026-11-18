@@ -59,6 +59,19 @@ export interface LiveTraffic {
 
 export type SubscriptionFormat = 'clash' | 'sing-box' | 'v2ray' | 'shadowrocket'
 
+export type AccessMode = 'off' | 'auto' | 'manual'
+
+export interface AccessSettings {
+  available: boolean
+  mode: AccessMode
+  domain?: string
+  httpsUrl?: string
+  fallbackUrl?: string
+  expiresAt?: string
+  manualUploadAllowed: boolean
+  warning?: string
+}
+
 export interface Traffic {
   timeZone: string
   collectedAt: string | null

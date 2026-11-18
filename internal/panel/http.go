@@ -41,6 +41,8 @@ func (s *Service) Handler() http.Handler {
 		api.Post("/auth/logout", auth.logout)
 		api.Group(func(private chi.Router) {
 			private.Use(auth.require)
+			private.Get("/settings/access", s.getAccessSettings)
+			private.Put("/settings/access", s.putAccessSettings)
 			private.Get("/devices", s.listDevices)
 			private.Post("/devices", s.createDevice)
 			private.Patch("/devices/{id}", s.updateDevice)
@@ -79,7 +81,7 @@ func (s *Service) protectAPI(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			if origin := r.Header.Get("Origin"); origin != "" && origin != s.cfg.PublicURL && origin != s.cfg.DevOrigin {
+			if origin := r.Header.Get("Origin"); origin != "" && !s.allowsOrigin(r, origin) {
 				fail(w, http.StatusForbidden, "请求来源不允许")
 				return
 			}
@@ -90,6 +92,17 @@ func (s *Service) protectAPI(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Service) allowsOrigin(r *http.Request, origin string) bool {
+	if origin == s.cfg.DevOrigin && origin != "" {
+		return true
+	}
+	if s.access != nil && r.TLS != nil {
+		site := s.access.active.Load()
+		return site != nil && origin == "https://"+site.domain
+	}
+	return origin == s.cfg.PublicURL
 }
 
 type response struct {
@@ -113,7 +126,11 @@ func send(w http.ResponseWriter, status int, value response) {
 }
 
 func readJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+	return readJSONLimit(w, r, dst, 4096)
+}
+
+func readJSONLimit(w http.ResponseWriter, r *http.Request, dst any, limit int64) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(dst); err != nil {
@@ -300,7 +317,7 @@ func (s *Service) getSubscription(w http.ResponseWriter, r *http.Request) {
 			fail(w, http.StatusConflict, "设备已停用")
 			return
 		}
-		respond(w, http.StatusOK, map[string]string{"url": s.cfg.PublicURL + "/sub/" + device.SubscriptionToken})
+		respond(w, http.StatusOK, map[string]string{"url": s.publicURL() + "/sub/" + device.SubscriptionToken})
 	}
 }
 
@@ -329,7 +346,7 @@ func (s *Service) rotateSubscription(w http.ResponseWriter, r *http.Request) {
 		s.report(w, "轮换订阅链接失败", err)
 		return
 	}
-	respond(w, http.StatusOK, map[string]string{"url": s.cfg.PublicURL + "/sub/" + token})
+	respond(w, http.StatusOK, map[string]string{"url": s.publicURL() + "/sub/" + token})
 }
 
 func (s *Service) traffic(w http.ResponseWriter, r *http.Request) {

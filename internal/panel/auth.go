@@ -88,7 +88,7 @@ func (a *authenticator) login(w http.ResponseWriter, r *http.Request) {
 	}
 	delete(a.attempts, key)
 	a.sessions[sha256.Sum256([]byte(token))] = now.Add(sessionLifetime)
-	a.setCookie(w, token, int(sessionLifetime.Seconds()))
+	a.setCookie(w, r, token, int(sessionLifetime.Seconds()))
 	respond(w, http.StatusOK, map[string]bool{"authenticated": true})
 }
 
@@ -111,14 +111,14 @@ func (a *authenticator) logout(w http.ResponseWriter, r *http.Request) {
 		delete(a.sessions, sha256.Sum256([]byte(cookie.Value)))
 		a.mu.Unlock()
 	}
-	a.setCookie(w, "", -1)
+	a.setCookie(w, r, "", -1)
 	respond(w, http.StatusOK, map[string]bool{"authenticated": false})
 }
 
-func (a *authenticator) setCookie(w http.ResponseWriter, value string, maxAge int) {
+func (a *authenticator) setCookie(w http.ResponseWriter, r *http.Request, value string, maxAge int) {
 	http.SetCookie(w, &http.Cookie{
 		Name: cookieName, Value: value, Path: "/", MaxAge: maxAge,
-		Secure: a.secure, HttpOnly: true, SameSite: http.SameSiteStrictMode,
+		Secure: a.secure || r.TLS != nil, HttpOnly: true, SameSite: http.SameSiteStrictMode,
 	})
 }
 

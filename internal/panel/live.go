@@ -181,7 +181,7 @@ func (s *Service) liveHandler(auth *authenticator) http.HandlerFunc {
 		HandshakeTimeout: liveWriteTimeout,
 		CheckOrigin: func(r *http.Request) bool {
 			values := r.Header.Values("Origin")
-			return len(values) == 1 && values[0] != "" && (values[0] == s.cfg.PublicURL || values[0] == s.cfg.DevOrigin)
+			return len(values) == 1 && values[0] != "" && s.allowsOrigin(r, values[0])
 		},
 		Error: func(w http.ResponseWriter, _ *http.Request, status int, _ error) {
 			fail(w, status, "无法建立实时流量连接")

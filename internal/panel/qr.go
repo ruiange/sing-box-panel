@@ -28,7 +28,7 @@ func (s *Service) subscriptionQR(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusConflict, "设备已停用")
 		return
 	}
-	subscription := s.cfg.PublicURL + "/sub/" + device.SubscriptionToken
+	subscription := s.publicURL() + "/sub/" + device.SubscriptionToken
 	if format != "" {
 		subscription += "/" + format
 	}

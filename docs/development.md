@@ -48,7 +48,7 @@ sudo bash install.sh --http --multiprotocol 203.0.113.10
 
 使用在线引导脚本时也可手动指定公网 IP。将 README 安装命令末尾的 `bash -c "$sbp"` 改为 `bash -c "$sbp" -- 203.0.113.10`，并换成服务器实际地址。需要自定义端口时，继续追加节点起始端口和网页端口。例如 `bash -c "$sbp" -- 203.0.113.10 18443 19443`。
 
-要使用自动 HTTPS，执行 `sudo bash install.sh 公网IP`（省略 `--http`），或 `sudo bash install.sh panel.example.com`。IP 模式的后台仍使用 `9443`，域名模式用标准 HTTPS 端口 `443`。两种 HTTPS 模式均须放行 TCP `443` 进行证书验证和续期，以及 `8443` 用于设备连接。域名的 DNS 记录应全部指向这台 VPS，Cloudflare DNS 使用「仅 DNS」。IP 模式在启动时申请证书，域名模式在首次访问时申请证书。执行 HTTPS 安装即同意 [Let’s Encrypt 服务条款](https://letsencrypt.org/repository/)。
+默认 IP + HTTP 安装完成后，可从网页[加开域名 HTTPS](#域名-https-配置)。若希望首次安装就只使用 HTTPS，执行 `sudo bash install.sh 公网IP`（省略 `--http`），或 `sudo bash install.sh panel.example.com`。IP 模式的后台仍使用 `9443`，域名模式用标准 HTTPS 端口 `443`。两种 HTTPS 模式均须放行 TCP `443` 进行证书验证和续期，以及 `8443` 用于设备连接。域名的 DNS 记录应全部指向这台 VPS，Cloudflare DNS 使用「仅 DNS」。IP 模式在启动时申请证书，域名模式在首次访问时申请证书。执行 HTTPS 安装即同意 [Let’s Encrypt 服务条款](https://letsencrypt.org/repository/)。
 
 脚本安装预编译产物，自动生成管理员密码和 Reality 密钥，并启动面板及专用节点。服务器需要 `iproute2`、`openssl` 及支持 JavaScript 规则的 `polkitd`，一键引导脚本会按需安装这些依赖。
 
@@ -57,6 +57,15 @@ sudo bash install.sh --http --multiprotocol 203.0.113.10
 如果旧版安装后面板日志显示 `sing-box 应用配置失败: exit status 1`，并确认 systemd 沙箱的 `NoNewPrivileges` 阻止了 `sudo`，可从修复后的安装包解压并运行 `sudo bash repair-node-control.sh`。脚本会备份环境文件，并将节点重启切换到 polkit 授权，沿用原有数据库、面板密码和节点凭据。
 
 离线升级时，先校验安装包的 SHA-256 并解包，再在包目录运行 `sudo bash update.sh`。脚本沿用已安装实例的配置，并在升级前备份状态。
+
+## 域名 HTTPS 配置
+
+网页「域名与证书」适用于直接用公网 IP + HTTP 访问的面板。它在原有入口之外提供一个 TCP `443` 的 HTTPS 入口。已经用环境变量启动为 HTTPS，或通过 Nginx、Caddy 等反向代理访问的实例，继续在原有部署层管理域名和证书。
+
+- **自动申请和续期：** A/AAAA 记录须指向能够访问本机面板的公网地址；如果同时发布 IPv4 和 IPv6 记录，两条线路都要能访问 TCP `443`。云安全组、系统防火墙和有 NAT 时的端口转发均需允许该端口，且不能有其他服务占用。Let’s Encrypt 通过 [TLS-ALPN-01](https://letsencrypt.org/docs/challenge-types/#tls-alpn-01) 直接连接 `443` 验证域名，因此 Cloudflare 等服务应使用「仅 DNS」。申请失败时先核对解析结果和端口是否能从外部访问，再查看 `journalctl -u sing-box-panel.service -n 80 --no-pager`。
+- **导入自己的证书：** 先通过可用的 HTTPS 域名入口登录，再导入 PEM 格式的完整证书链（如 `fullchain.pem`）和配套的未加密私钥（如 `privkey.pem`）。面板会检查域名、有效期和私钥是否匹配，页面可查看证书到期时间。证书由外部签发和续期，续期后需要重新导入。公网 HTTP 页面不接收私钥。
+
+面板将网页设置及证书保存在面板数据目录中，标准部署为 `/var/lib/sing-box-panel`，备份时应一并保留。切换到 HTTPS 地址后需要重新登录。维护期间可继续用原 IP + HTTP 地址进入后台或关闭域名访问；已发出的 IP 订阅链接仍有效，面板上新复制的订阅和二维码使用当前配置的地址。停用或更换域名后，通过旧域名下载订阅的客户端需换用新的地址。
 
 ## GitHub 自动发布
 
