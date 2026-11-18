@@ -26,7 +26,7 @@ import (
 const (
 	releaseRepo = "ruiange/sing-box-panel"
 	latestURL   = "https://api.github.com/repos/" + releaseRepo + "/releases/latest"
-	usage       = "用法：sing-box-panel [version | latest | download [目录] | validate-address 公网IP]"
+	usage       = "用法：sing-box-panel [version | latest | download [目录] | validate-address 公网IP | domain-url 数据库路径]"
 )
 
 // Set by deploy/package.sh with -ldflags "-X main.version=<tag>".
@@ -60,6 +60,17 @@ func runCommand(args []string) int {
 				return reportCommandError(err, 2)
 			}
 			fmt.Fprintln(os.Stdout, address)
+			return 0
+		}
+	case "domain-url":
+		if len(args) == 2 && args[1] != "" {
+			address, err := panel.ConfiguredDomainURL(args[1])
+			if err != nil {
+				return reportCommandError(err, 1)
+			}
+			if address != "" {
+				fmt.Fprintln(os.Stdout, address)
+			}
 			return 0
 		}
 	case "version", "--version", "-v":

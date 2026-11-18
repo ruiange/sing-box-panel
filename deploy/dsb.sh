@@ -174,6 +174,7 @@ validated_family_address() {
 
 show_addresses() {
     local public_url listen port family target lookup source address label
+    local database domain_url
     local ipv4_url='^http://[0-9.]+:([0-9]+)/?$' ipv6_url='^http://\[[[:xdigit:]:]+\]:([0-9]+)/?$'
     require_config 后台地址 6 || return 1
     if ! public_url=$(read_setting PANEL_PUBLIC_URL); then
@@ -184,6 +185,18 @@ show_addresses() {
 
     # An HTTPS certificate or reverse proxy may only cover the configured host.
     [[ $(read_setting PANEL_HTTPS_MODE) == http ]] || return 0
+
+    # Resolve relative paths from the same working directory as the panel service.
+    database=$(read_setting PANEL_DATABASE) || database=./data/panel.db
+    [[ $database == /* ]] || database=/var/lib/sing-box-panel/$database
+    # Read the saved HTTPS settings as the service account.
+    if [[ -x $panel ]] &&
+        domain_url=$(timeout 3 setpriv --reuid=sing-box-panel --regid=sing-box-panel \
+            --clear-groups --no-new-privs -- "$panel" domain-url "$database" 2>/dev/null) &&
+        [[ -n $domain_url ]]; then
+        printf '后台地址（域名）：%s\n' "$domain_url"
+    fi
+
     if [[ $public_url =~ $ipv6_url ]]; then
         port=${BASH_REMATCH[1]} family=4 target=1.1.1.1 lookup=https://api.ipify.org
     elif [[ $public_url =~ $ipv4_url ]]; then

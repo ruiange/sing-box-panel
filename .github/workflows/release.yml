@@ -264,6 +264,32 @@ jobs:
           assert subprocess.check_output([dsb, "5"], text=True).rstrip("\n") == "后台管理员密码：" + password
           assert subprocess.check_output([dsb, "6"], text=True).splitlines()[0] == "后台地址：http://8.8.8.8:19443"
 
+          # Read fixture state as the panel account without changing the installed settings.
+          with TemporaryDirectory() as directory:
+              fixture_dir = Path(directory)
+              fixture_dir.chmod(0o755)
+              fixture_env = fixture_dir / "panel.env"
+              fixture_env.write_text("PANEL_HTTPS_MODE=http\nPANEL_PUBLIC_URL=http://8.8.8.8:19443\n"
+                                     f"PANEL_DATABASE={fixture_dir / 'panel.db'}\nPANEL_LISTEN=127.0.0.1:19443\n")
+              fixture = fixture_dir / "dsb"
+              fixture.write_text(dsb.read_text().replace(str(env_path), str(fixture_env)))
+              addresses = ["/bin/bash", fixture, "6"]
+              ip_only = ["后台地址：http://8.8.8.8:19443"]
+              with_domain = ip_only + ["后台地址（域名）：https://panel.example.com"]
+              assert subprocess.check_output(addresses, text=True).splitlines() == ip_only
+
+              access_file = fixture_dir / "panel-https" / "access.json"
+              access_file.parent.mkdir(mode=0o755)
+              for settings, expected in (
+                  ({"mode": "auto", "domain": "panel.example.com"}, with_domain),
+                  ({"mode": "manual", "domain": "panel.example.com", "certificate": "fixture", "privateKey": "fixture"},
+                   with_domain),
+                  ({"mode": "off"}, ip_only),
+              ):
+                  access_file.write_text(json.dumps(settings))
+                  access_file.chmod(0o644)
+                  assert subprocess.check_output(addresses, text=True).splitlines() == expected
+
           # Test the menu's query and download arguments without contacting a live release.
           with TemporaryDirectory() as directory:
               stub = Path(directory) / "panel"

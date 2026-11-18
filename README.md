@@ -65,7 +65,7 @@ sbp=$(wget -qO- https://github.com/ruiange/sing-box-panel/releases/latest/downlo
 | `dsb 3` | 下载并校验本机架构的最新安装包，保存到当前目录。可用 `dsb 3 /tmp` 指定已有目录 |
 | `sudo dsb 4` | 原地升级到最新版本 |
 | `sudo dsb 5` | 查看后台管理员密码。需使用包含编号 `5` 的版本 |
-| `sudo dsb 6` | 查看后台访问地址。HTTP 直连部署会同时显示检测到的公网 IPv4 和 IPv6 |
+| `sudo dsb 6` | 查看后台访问地址。HTTP 直连部署还会显示已配置的 HTTPS 域名入口，以及检测到的公网 IPv4 和 IPv6 |
 
 已登录 root 时可省略 `sudo`。如果当前版本还没有 `dsb 5`，可用 root 执行下面这条命令查看密码：
 

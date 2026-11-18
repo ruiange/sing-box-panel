@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -93,7 +92,7 @@ func (s *Service) StartDomainAccess(ctx context.Context, handler http.Handler) f
 	if !s.cfg.DirectHTTP {
 		return func() {}
 	}
-	m := &domainAccess{ctx: ctx, dir: filepath.Join(filepath.Dir(s.cfg.DatabasePath), "panel-https"), listenAddr: domainListen, handler: handler, log: s.log}
+	m := &domainAccess{ctx: ctx, dir: domainAccessDir(s.cfg.DatabasePath), listenAddr: domainListen, handler: handler, log: s.log}
 	s.access = m
 	if err := m.restore(); err != nil {
 		message := "保存的 HTTPS 配置未能加载，请检查服务日志后重新配置。"
@@ -112,23 +111,41 @@ func (s *Service) StartDomainAccess(ctx context.Context, handler http.Handler) f
 	}
 }
 
-func (m *domainAccess) restore() error {
-	data, err := os.ReadFile(filepath.Join(m.dir, "access.json"))
+func domainAccessDir(databasePath string) string {
+	return filepath.Join(filepath.Dir(databasePath), "panel-https")
+}
+
+func readAccessConfig(dir string) (accessConfig, error) {
+	data, err := os.ReadFile(filepath.Join(dir, "access.json"))
 	if errors.Is(err, os.ErrNotExist) {
-		return nil
+		return accessConfig{Mode: "off"}, nil
 	}
 	if err != nil {
-		return err
+		return accessConfig{}, err
 	}
 	var cfg accessConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return fmt.Errorf("证书设置文件格式无效")
+		return accessConfig{}, errors.New("证书设置文件格式无效")
 	}
 	if err := cfg.validate(); err != nil {
-		return err
+		return accessConfig{}, err
 	}
-	if cfg.Mode == "off" {
-		return nil
+	return cfg, nil
+}
+
+// ConfiguredDomainURL reads the saved domain without starting the HTTPS listener.
+func ConfiguredDomainURL(databasePath string) (string, error) {
+	cfg, err := readAccessConfig(domainAccessDir(databasePath))
+	if err != nil || cfg.Mode == "off" {
+		return "", err
+	}
+	return "https://" + cfg.Domain, nil
+}
+
+func (m *domainAccess) restore() error {
+	cfg, err := readAccessConfig(m.dir)
+	if err != nil || cfg.Mode == "off" {
+		return err
 	}
 	site, err := m.newSite(cfg)
 	if err != nil {
