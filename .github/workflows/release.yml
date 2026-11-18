@@ -262,7 +262,7 @@ jobs:
           assert subprocess.check_output([dsb, "0"], text=True).rstrip("\n") == farewell
           assert subprocess.check_output([dsb], input="0\n", text=True).rstrip("\n").endswith(farewell)
           assert subprocess.check_output([dsb, "5"], text=True).rstrip("\n") == "后台管理员密码：" + password
-          assert subprocess.check_output([dsb, "6"], text=True).rstrip("\n") == "后台地址：http://8.8.8.8:19443"
+          assert subprocess.check_output([dsb, "6"], text=True).splitlines()[0] == "后台地址：http://8.8.8.8:19443"
 
           # Test the menu's query and download arguments without contacting a live release.
           with TemporaryDirectory() as directory:

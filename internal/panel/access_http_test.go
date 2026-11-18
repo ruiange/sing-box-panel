@@ -78,6 +78,86 @@ func TestAccessSettingsRequireSessionAndProtectPEMUpload(t *testing.T) {
 	}
 }
 
+func TestDirectHTTPAcceptsSameOriginLoginAndLiveTrafficOnAlternateIP(t *testing.T) {
+	const ipv4 = "http://1.1.1.1:19443"
+	const ipv6 = "http://[2606:4700:4700::1111]:19443"
+	const otherOrigin = "http://9.9.9.9:19443"
+
+	for _, tc := range []struct {
+		name, configured, alternate string
+	}{
+		{"IPv4", ipv6, ipv4},
+		{"IPv6", ipv4, ipv6},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := NewService(nil, nil, Config{
+				PublicURL:  tc.configured,
+				Listen:     ":19443",
+				Password:   "test-password",
+				DirectHTTP: true,
+			}, nil)
+			server := httptest.NewServer(s.Handler())
+			t.Cleanup(server.Close)
+			t.Cleanup(s.CloseLiveTraffic)
+			// Route the public test addresses to a loopback listener while keeping the original Host.
+			dial := func(ctx context.Context, network, _ string) (net.Conn, error) {
+				return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
+			}
+			transport := &http.Transport{DialContext: dial}
+			t.Cleanup(transport.CloseIdleConnections)
+			client := &http.Client{Transport: transport, Timeout: 3 * time.Second}
+			login := func(target, origin string, status int) []*http.Cookie {
+				t.Helper()
+				req, err := http.NewRequest(http.MethodPost, target+"/api/auth/login", strings.NewReader(`{"password":"test-password"}`))
+				if err != nil {
+					t.Fatal(err)
+				}
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Origin", origin)
+				reply, err := client.Do(req)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer reply.Body.Close()
+				if reply.StatusCode != status {
+					t.Fatalf("login to %s from %s returned HTTP %d; want %d", target, origin, reply.StatusCode, status)
+				}
+				return reply.Cookies()
+			}
+
+			login(tc.alternate, otherOrigin, http.StatusForbidden)
+			for _, address := range []string{"http://panel.example.com:19443", "http://10.0.0.1:19443", "http://1.1.1.1:19444"} {
+				login(address, address, http.StatusForbidden)
+			}
+			cookies := login(tc.alternate, tc.alternate, http.StatusOK)
+			if len(cookies) != 1 || cookies[0].Secure {
+				t.Fatal("alternate IP login did not issue an HTTP session cookie")
+			}
+
+			address := "ws" + strings.TrimPrefix(tc.alternate, "http") + "/api/traffic/live"
+			dialer := &websocket.Dialer{NetDialContext: dial, HandshakeTimeout: 3 * time.Second}
+			headers := http.Header{"Cookie": {cookies[0].Name + "=" + cookies[0].Value}, "Origin": {otherOrigin}}
+			conn, reply, err := dialer.Dial(address, headers)
+			if reply != nil {
+				reply.Body.Close()
+			}
+			if err == nil {
+				conn.Close()
+				t.Fatal("cross-origin WebSocket connected to the alternate IP")
+			}
+			if reply == nil || reply.StatusCode != http.StatusForbidden {
+				t.Fatalf("unexpected cross-origin WebSocket rejection: %v", err)
+			}
+			headers.Set("Origin", tc.alternate)
+			conn, _, err = dialer.Dial(address, headers)
+			if err != nil {
+				t.Fatalf("alternate IP live traffic failed to connect: %v", err)
+			}
+			t.Cleanup(func() { _ = conn.Close() })
+		})
+	}
+}
+
 func TestAccessDomainAcceptsSameOriginLoginAndLiveTraffic(t *testing.T) {
 	const domain = "panel.example.com"
 	const origin = "https://" + domain

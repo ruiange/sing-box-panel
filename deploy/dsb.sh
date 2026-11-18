@@ -5,6 +5,7 @@ export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 umask 077
 
 panel=/usr/local/bin/sing-box-panel
+config=/etc/sing-box-panel/panel.env
 launcher_url=https://github.com/ruiange/sing-box-panel/releases/latest/download/install-from-release.sh
 
 menu() {
@@ -99,8 +100,8 @@ upgrade() (
     bash "$stage/install-from-release.sh" --upgrade
 )
 
-show_setting() {
-    local key=$1 label=$2 number=$3 config=/etc/sing-box-panel/panel.env
+require_config() {
+    local label=$1 number=$2
     if [[ $EUID -ne 0 ]]; then
         printf '查看%s需要 root 权限，请运行 sudo dsb %s。\n' "$label" "$number" >&2
         return 1
@@ -109,7 +110,10 @@ show_setting() {
         printf '无法读取面板配置 %s。\n' "$config" >&2
         return 1
     fi
-    if ! awk -v key="$key" -v label="$label" '
+}
+
+read_setting() {
+    awk -v key="$1" '
         $0 ~ ("^[[:blank:]]*" key "[[:blank:]]*=") {
             value = substr($0, index($0, "=") + 1)
             sub(/^[[:blank:]]+/, "", value)
@@ -122,12 +126,89 @@ show_setting() {
         }
         END {
             if (value == "") exit 1
-            printf "%s：%s\n", label, value
+            print value
         }
-    ' "$config"; then
+    ' "$config"
+}
+
+show_setting() {
+    local key=$1 label=$2 number=$3 value
+    require_config "$label" "$number" || return 1
+    if ! value=$(read_setting "$key"); then
         printf '未能读取%s。\n' "$label" >&2
         return 1
     fi
+    printf '%s：%s\n' "$label" "$value"
+}
+
+route_source() {
+    ip "-$1" route get "$2" 2>/dev/null | awk '
+        { for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }
+    '
+}
+
+query_public_ip() {
+    local family=$1 url=$2
+    if command -v curl >/dev/null; then
+        curl --disable "-$family" --fail --silent --noproxy '*' --proto '=https' \
+            --connect-timeout 3 --max-time 6 -- "$url"
+    elif command -v wget >/dev/null && command -v timeout >/dev/null; then
+        timeout 7 wget --no-config "-$family" --no-proxy --quiet --max-redirect=0 \
+            --timeout=5 --tries=1 --output-document=- -- "$url"
+    else
+        return 1
+    fi
+}
+
+validated_family_address() {
+    local family=$1 address=$2
+    [[ -n $address && -x $panel ]] || return 1
+    address=$("$panel" validate-address "$address" 2>/dev/null) || return 1
+    case "$family:$address" in
+        4:*.*) [[ $address != *:* ]] || return 1 ;;
+        6:*:*) ;;
+        *) return 1 ;;
+    esac
+    printf '%s\n' "$address"
+}
+
+show_addresses() {
+    local public_url listen port family target lookup source address label
+    local ipv4_url='^http://[0-9.]+:([0-9]+)/?$' ipv6_url='^http://\[[[:xdigit:]:]+\]:([0-9]+)/?$'
+    require_config 后台地址 6 || return 1
+    if ! public_url=$(read_setting PANEL_PUBLIC_URL); then
+        printf '%s\n' '未能读取后台地址。' >&2
+        return 1
+    fi
+    printf '后台地址：%s\n' "$public_url"
+
+    # An HTTPS certificate or reverse proxy may only cover the configured host.
+    [[ $(read_setting PANEL_HTTPS_MODE) == http ]] || return 0
+    if [[ $public_url =~ $ipv6_url ]]; then
+        port=${BASH_REMATCH[1]} family=4 target=1.1.1.1 lookup=https://api.ipify.org
+    elif [[ $public_url =~ $ipv4_url ]]; then
+        port=${BASH_REMATCH[1]} family=6 target=2606:4700:4700::1111 lookup=https://api6.ipify.org
+    else
+        return 0
+    fi
+
+    listen=$(read_setting PANEL_LISTEN) || listen=:$port
+    case "$listen" in
+        ":$port"|"[::]:$port") ;;
+        "0.0.0.0:$port") [[ $family == 4 ]] || return 0 ;;
+        *) return 0 ;;
+    esac
+    [[ -x $panel ]] || return 0
+
+    label=IPv$family
+    if ! { source=$(route_source "$family" "$target") &&
+        address=$(validated_family_address "$family" "$source"); }; then
+        source=$(query_public_ip "$family" "$lookup") &&
+            address=$(validated_family_address "$family" "$source") || return 0
+        label+='，公网出口'
+    fi
+    [[ $family == 4 ]] || address=[$address]
+    printf '后台地址（%s）：http://%s:%s\n' "$label" "$address" "$port"
 }
 
 if [[ $# -eq 0 ]]; then
@@ -151,6 +232,6 @@ case "$1" in
     3) shift; run_panel download "$@" ;;
     4) upgrade ;;
     5) show_setting PANEL_ADMIN_PASSWORD 后台管理员密码 5 ;;
-    6) show_setting PANEL_PUBLIC_URL 后台地址 6 ;;
+    6) show_addresses ;;
     *) usage_error ;;
 esac

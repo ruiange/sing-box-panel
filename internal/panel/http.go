@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -102,7 +103,24 @@ func (s *Service) allowsOrigin(r *http.Request, origin string) bool {
 		site := s.access.active.Load()
 		return site != nil && origin == "https://"+site.domain
 	}
-	return origin == s.cfg.PublicURL
+	if origin == s.cfg.PublicURL {
+		return true
+	}
+	if !s.cfg.DirectHTTP || r.TLS != nil || origin != "http://"+r.Host {
+		return false
+	}
+
+	// Accept the same-origin request on another IP without trusting DNS names.
+	host, port, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		return false
+	}
+	_, listenPort, err := net.SplitHostPort(s.cfg.Listen)
+	if err != nil || port != listenPort {
+		return false
+	}
+	ip, err := PublicIP(host)
+	return err == nil && r.Host == net.JoinHostPort(ip, port)
 }
 
 type response struct {
