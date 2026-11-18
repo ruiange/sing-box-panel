@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: 趣多多流量冠军
   version: 0.1.0
-  description: 单节点设备、订阅、流量统计与面板 HTTPS 配置。管理接口的 code 为 0 时表示成功，错误时使用 HTTP 状态码且 data 为 null。
+  description: 单节点设备、订阅、流量统计与面板设置。管理接口的 code 为 0 时表示成功，错误时使用 HTTP 状态码且 data 为 null。
 security:
   - session: []
 paths:
@@ -36,6 +36,36 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Session' }
         default: { $ref: '#/components/responses/Error' }
+  /api/site:
+    get:
+      summary: 查询网站标题
+      description: 登录前即可读取。未设置时返回「趣多多流量冠军」。
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/SiteSettings' }
+        '500': { $ref: '#/components/responses/Error' }
+    put:
+      summary: 更新网站标题
+      description: 管理员登录后可修改。保存后返回去掉首尾空白的标题。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  description: 去掉首尾空白后须为 1 至 80 个 Unicode 字符，且不能包含控制字符。
+                  example: 我的流量面板
+      responses:
+        '200': { $ref: '#/components/responses/SiteSettings' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
   /api/settings/access:
     get:
       summary: 查询后台域名与证书设置
@@ -435,6 +465,23 @@ components:
                         properties:
                           at: { type: string, format: date-time }
   responses:
+    SiteSettings:
+      description: 当前网站标题
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Success'
+              - properties:
+                  data:
+                    type: object
+                    required: [title]
+                    properties:
+                      title:
+                        type: string
+                        minLength: 1
+                        maxLength: 80
+                        example: 趣多多流量冠军
     AccessSettings:
       description: 后台域名与证书设置
       content:

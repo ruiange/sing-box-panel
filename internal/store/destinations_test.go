@@ -28,6 +28,7 @@ func TestDestinationHistoryMigratesV4AndKeepsEachConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := s.db.ExecContext(ctx, `
+		DROP TABLE site_settings;
 		DROP TABLE device_destinations;
 		CREATE TABLE device_destinations (
 			device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
@@ -47,6 +48,9 @@ func TestDestinationHistoryMigratesV4AndKeepsEachConnection(t *testing.T) {
 	s, err = Open(path)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if title, err := s.SiteTitle(ctx); err != nil || title != "趣多多流量冠军" {
+		t.Fatalf("migration did not initialize the site title: %q (%v)", title, err)
 	}
 	report, err := s.Traffic(ctx, start.Add(time.Hour), 7, time.UTC)
 	if err != nil || report.Totals.All.Upload != 80 {

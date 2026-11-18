@@ -60,7 +60,7 @@ sudo bash install.sh --http --multiprotocol 203.0.113.10
 
 ## 域名 HTTPS 配置
 
-网页「域名与证书」适用于直接用公网 IP + HTTP 访问的面板。它在原有入口之外提供一个 TCP `443` 的 HTTPS 入口。已经用环境变量启动为 HTTPS，或通过 Nginx、Caddy 等反向代理访问的实例，继续在原有部署层管理域名和证书。
+网页「网站设置 → 域名与证书」适用于直接用公网 IP + HTTP 访问的面板。它在原有入口之外提供一个 TCP `443` 的 HTTPS 入口。已经用环境变量启动为 HTTPS，或通过 Nginx、Caddy 等反向代理访问的实例，继续在原有部署层管理域名和证书。
 
 - **自动申请和续期：** A/AAAA 记录须指向能够访问本机面板的公网地址；如果同时发布 IPv4 和 IPv6 记录，两条线路都要能访问 TCP `443`。云安全组、系统防火墙和有 NAT 时的端口转发均需允许该端口，且不能有其他服务占用。Let’s Encrypt 通过 [TLS-ALPN-01](https://letsencrypt.org/docs/challenge-types/#tls-alpn-01) 直接连接 `443` 验证域名，因此 Cloudflare 等服务应使用「仅 DNS」。申请失败时先核对解析结果和端口是否能从外部访问，再查看 `journalctl -u sing-box-panel.service -n 80 --no-pager`。
 - **导入自己的证书：** 先通过可用的 HTTPS 域名入口登录，再导入 PEM 格式的完整证书链（如 `fullchain.pem`）和配套的未加密私钥（如 `privkey.pem`）。面板会检查域名、有效期和私钥是否匹配，页面可查看证书到期时间。证书由外部签发和续期，续期后需要重新导入。公网 HTTP 页面不接收私钥。

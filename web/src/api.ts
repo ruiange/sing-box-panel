@@ -59,6 +59,10 @@ export interface LiveTraffic {
 
 export type SubscriptionFormat = 'clash' | 'sing-box' | 'v2ray' | 'shadowrocket'
 
+export interface SiteSettings {
+  title: string
+}
+
 export type AccessMode = 'off' | 'auto' | 'manual'
 
 export interface AccessSettings {

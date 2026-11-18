@@ -40,8 +40,10 @@ func (s *Service) Handler() http.Handler {
 		})
 		api.Post("/auth/login", auth.login)
 		api.Post("/auth/logout", auth.logout)
+		api.Get("/site", s.getSiteSettings)
 		api.Group(func(private chi.Router) {
 			private.Use(auth.require)
+			private.Put("/site", s.putSiteSettings)
 			private.Get("/settings/access", s.getAccessSettings)
 			private.Put("/settings/access", s.putAccessSettings)
 			private.Get("/devices", s.listDevices)

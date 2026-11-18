@@ -232,7 +232,20 @@ func migrate(ctx context.Context, db *sql.DB) error {
 		if err != nil {
 			return err
 		}
+		fallthrough
 	case 5:
+		_, err = tx.ExecContext(ctx, `
+			CREATE TABLE site_settings (
+				id INTEGER PRIMARY KEY CHECK (id = 1),
+				title TEXT NOT NULL
+			) STRICT;
+			INSERT INTO site_settings (id, title) VALUES (1, '趣多多流量冠军');
+			PRAGMA user_version = 6;
+		`)
+		if err != nil {
+			return err
+		}
+	case 6:
 	default:
 		return fmt.Errorf("unsupported schema version %d", version)
 	}

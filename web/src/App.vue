@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
-  Activity, ArrowDown, ArrowRight, ArrowUp, Cable, CircleAlert, Clipboard, FileCode, Gauge, Globe,
-  Link2, LockKeyhole, LogOut, Plus, RadioTower, RefreshCw, Search, Smartphone, X,
+  Activity, ArrowDown, ArrowRight, ArrowUp, Cable, CircleAlert, Clipboard, FileCode, Gauge,
+  Link2, LockKeyhole, LogOut, Plus, RadioTower, RefreshCw, Search, Settings, Smartphone, X,
 } from 'lucide-vue-next'
-import { api, APIError, errorMessage, type Device, type Traffic } from './api'
+import { api, APIError, errorMessage, type Device, type SiteSettings, type Traffic } from './api'
 import { beginDeviceCreation, confirmDeviceCreations, hasPendingDeviceCreation, submitDeviceCreation, type DeviceCreateRequest } from './deviceCreation'
 import { formatBytes, formatRate, formatTime, totalUsage } from './format'
 import { useLiveTraffic } from './useLiveTraffic'
@@ -24,7 +24,7 @@ const tabs = [
   { id: 'overview', text: '运行概览', icon: Gauge },
   { id: 'devices', text: '设备管理', icon: Smartphone },
   { id: 'traffic', text: '流量统计', icon: Activity },
-  { id: 'access', text: '域名与证书', icon: Globe },
+  { id: 'access', text: '网站设置', icon: Settings },
 ] as const
 const periods = [
   { key: 'today', title: '今日用量' },
@@ -74,6 +74,22 @@ const chartRange = ref<HistoryRange>()
 const query = ref('')
 const filter = ref<'all' | 'enabled' | 'disabled'>('all')
 const toast = ref('')
+
+const defaultSiteTitle = document.title
+const savedTitle = ref<string>()
+const siteTitle = computed(() => savedTitle.value ?? defaultSiteTitle)
+const draftTitle = ref('')
+const titleLoading = ref(true)
+const titleSaving = ref(false)
+const titleError = ref('')
+const titleSaved = ref(false)
+const trimmedTitle = computed(() => draftTitle.value.trim())
+const titleTooLong = computed(() => Array.from(trimmedTitle.value).length > 80)
+const canSaveTitle = computed(() =>
+  Boolean(savedTitle.value && trimmedTitle.value) &&
+  trimmedTitle.value !== savedTitle.value &&
+  !titleTooLong.value && !titleSaving.value,
+)
 
 const dialog = ref<HTMLDialogElement>()
 const modal = ref<Modal>()
@@ -192,6 +208,47 @@ function showLogin(message = '') {
   closeModal()
   loginError.value = message
   stage.value = 'login'
+}
+
+function applySiteTitle(title: string) {
+  savedTitle.value = title
+  draftTitle.value = title
+  document.title = title
+}
+
+async function loadSiteTitle() {
+  titleLoading.value = true
+  titleError.value = ''
+  try {
+    const current = await api<SiteSettings>('/site')
+    applySiteTitle(current.title)
+  } catch (error) {
+    titleError.value = errorMessage(error)
+  } finally {
+    titleLoading.value = false
+  }
+}
+
+async function saveSiteTitle() {
+  if (!canSaveTitle.value) return
+  titleSaving.value = true
+  titleError.value = ''
+  titleSaved.value = false
+  try {
+    const current = await api<SiteSettings>('/site', 'PUT', { title: trimmedTitle.value })
+    applySiteTitle(current.title)
+    titleSaved.value = true
+  } catch (error) {
+    if (error instanceof APIError && error.status === 401) showLogin('登录已过期，请重新登录。')
+    else titleError.value = errorMessage(error)
+  } finally {
+    titleSaving.value = false
+  }
+}
+
+function clearTitleFeedback() {
+  titleError.value = ''
+  titleSaved.value = false
 }
 
 async function restoreSession() {
@@ -435,6 +492,7 @@ function cancelDialog(event: Event) {
 onMounted(() => {
   readLocation()
   window.addEventListener('hashchange', readLocation)
+  void loadSiteTitle()
   void restoreSession()
   poll = window.setInterval(() => {
     if (!document.hidden && !loading.value) void refresh()
@@ -452,7 +510,7 @@ onBeforeUnmount(() => {
     <div class="login-visual" aria-hidden="true">
       <div class="login-grid"></div>
       <div class="signal-orbits"><i></i><i></i><i></i><span><RadioTower :size="62" /></span></div>
-      <div class="login-brand"><span class="brand-mark"><Cable :size="23" /></span><strong>趣多多流量冠军</strong></div>
+      <div class="login-brand"><span class="brand-mark"><Cable :size="23" /></span><strong>{{ siteTitle }}</strong></div>
     </div>
     <main class="login-main">
       <form v-if="stage === 'login'" class="login-form" @submit.prevent="login">
@@ -471,9 +529,9 @@ onBeforeUnmount(() => {
   </div>
   <div v-else class="workspace">
     <aside class="sidebar">
-      <a class="brand" href="#overview" aria-label="趣多多流量冠军面板概览">
+      <a class="brand" href="#overview" :aria-label="`${siteTitle} · 面板概览`">
         <span class="brand-mark"><Cable :size="22" aria-hidden="true" /></span>
-        <span><strong>趣多多流量冠军</strong><small>设备控制台</small></span>
+        <span><strong>{{ siteTitle }}</strong><small>设备控制台</small></span>
       </a>
       <nav class="nav" aria-label="面板导航">
         <a v-for="tab in tabs" :key="tab.id" :href="'#' + tab.id" :class="{ active: view === tab.id }" :aria-current="view === tab.id ? 'page' : undefined">
@@ -505,6 +563,36 @@ onBeforeUnmount(() => {
         </div>
       </header>
       <div v-if="view === 'access'" class="content">
+        <div class="page-heading">
+          <h1>网站设置</h1>
+        </div>
+        <section class="panel site-title-settings" aria-labelledby="site-title-heading">
+          <header class="panel-head">
+            <div>
+              <h2 id="site-title-heading">网站标题</h2>
+              <p id="site-title-help">显示在登录页、后台和浏览器标签上，最多 80 个字符。</p>
+            </div>
+          </header>
+          <form class="site-title-form" @submit.prevent="saveSiteTitle">
+            <p v-if="titleLoading" class="muted" role="status">正在读取网站标题…</p>
+            <template v-else-if="savedTitle">
+              <div class="site-title-field">
+                <input
+                  v-model="draftTitle" class="input" type="text" required
+                  aria-labelledby="site-title-heading" aria-describedby="site-title-help" :aria-invalid="titleTooLong || undefined"
+                  :disabled="titleSaving" @input="clearTitleFeedback"
+                />
+                <button class="button primary" type="submit" :disabled="!canSaveTitle">
+                  {{ titleSaving ? '正在保存…' : '保存标题' }}
+                </button>
+              </div>
+              <p v-if="titleTooLong" class="form-error">网站标题最多 80 个字符。</p>
+              <p v-if="titleSaved" class="form-feedback" role="status">网站标题已保存。</p>
+            </template>
+            <p v-if="titleError" class="form-error" role="alert">{{ titleError }}</p>
+            <button v-if="!titleLoading && !savedTitle" class="button" type="button" @click="loadSiteTitle">重试</button>
+          </form>
+        </section>
         <AccessSettings @expired="showLogin('登录已过期，请重新登录。')" />
       </div>
       <div v-else class="content">

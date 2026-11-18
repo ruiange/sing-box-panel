@@ -120,17 +120,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="page-heading">
-    <div>
-      <h1>域名与证书</h1>
-      <p>为网页后台配置独立的 HTTPS 访问地址。</p>
-    </div>
-  </div>
-
   <div class="access-settings">
     <section class="panel" aria-labelledby="access-status-heading">
       <header class="panel-head">
-        <h2 id="access-status-heading">当前状态</h2>
+        <div>
+          <h2 id="access-status-heading">域名与证书</h2>
+          <p>为网页后台配置独立的 HTTPS 访问地址。</p>
+        </div>
         <span v-if="settings?.available" class="badge" :class="{ enabled: settings.mode !== 'off' }">
           <span class="status-dot" aria-hidden="true"></span>{{ modeLabels[settings.mode] }}
         </span>
