@@ -2,7 +2,7 @@
 
 趣多多流量冠军的日常安装、升级和面板操作见 [使用指南](../README.md)。
 
-- 管理后台使用 Vue 3、TypeScript、Vite、ECharts 和 pnpm。
+- 管理后台使用 React、Ant Design Pro、Ant Design Charts、TypeScript、Vite 和 pnpm。
 - Go 管理接口返回 `{code,data,message}`，`code: 0` 表示成功。订阅端点返回客户端所需的原始格式。
 - SQLite 保存设备、流量、访问记录和采集游标。OpenAPI 规范位于 `/openapi.yaml`，Scalar 页面位于 `/docs`。
 

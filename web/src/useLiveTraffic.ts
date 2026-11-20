@@ -1,109 +1,136 @@
-import { onBeforeUnmount, ref, shallowReactive, shallowRef, watch, type Ref } from 'vue'
+import { useEffect, useRef, useState } from 'react'
 import type { LiveTraffic } from './api'
 
+export type LiveState = 'connecting' | 'waiting' | 'live' | 'reconnecting'
+
 const liveSampleTimeout = 8000
+const emptyLastActiveAt: ReadonlyMap<string, string> = new Map()
 
-export function useLiveTraffic(enabled: Readonly<Ref<boolean>>, deviceId: Readonly<Ref<string>>, expired: () => void) {
-  const snapshot = shallowRef<LiveTraffic>()
-  const state = ref<'connecting' | 'waiting' | 'live' | 'reconnecting'>('connecting')
-  const lastActiveAt = shallowReactive(new Map<string, string>())
-  let socket: WebSocket | undefined
-  let retry: number | undefined
-  let stale: number | undefined
-  let retryDelay = 1000
-  let lastSample: string | undefined
-
-  function subscribe() {
-    if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ type: 'subscribe', deviceId: deviceId.value }))
-    }
+function sendSubscription(socket: WebSocket | undefined, deviceId: string) {
+  if (socket?.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: 'subscribe', deviceId }))
   }
+}
 
-  function clearData() {
-    window.clearTimeout(stale)
-    snapshot.value = undefined
-  }
+export function useLiveTraffic(enabled: boolean, deviceId: string, onExpired: () => void) {
+  const [snapshot, setSnapshot] = useState<LiveTraffic>()
+  const [state, setState] = useState<LiveState>('connecting')
+  const [lastActiveAt, setLastActiveAt] = useState(emptyLastActiveAt)
+  const socket = useRef<WebSocket>()
+  const scope = useRef(deviceId)
 
-  function connect() {
-    if (!enabled.value || socket) return
-    const endpoint = new URL('/api/traffic/live', window.location.href)
-    endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:' : 'ws:'
-    const connection = new WebSocket(endpoint)
-    socket = connection
-    connection.onopen = () => {
-      if (socket !== connection) return
-      state.value = 'waiting'
-      subscribe()
+  useEffect(() => {
+    scope.current = deviceId
+    sendSubscription(socket.current, deviceId)
+  }, [deviceId])
+
+  useEffect(() => {
+    if (!enabled) {
+      setSnapshot(undefined)
+      setState('connecting')
+      setLastActiveAt(emptyLastActiveAt)
+      return
     }
-    connection.onmessage = ({ data }) => {
-      if (socket !== connection || typeof data !== 'string') return
-      let incoming: LiveTraffic
-      try {
-        const message = JSON.parse(data)
-        if (message?.code !== 0) return
-        incoming = message.data
-        if (!incoming || typeof incoming.deviceId !== 'string' || !Array.isArray(incoming.history) ||
-            !incoming.devices || (incoming.at !== null && !Number.isFinite(Date.parse(incoming.at)))) return
-      } catch {
-        return
+
+    let retry: number | undefined
+    let stale: number | undefined
+    let retryDelay = 1000
+    let lastSample: string | undefined
+    let sampleFresh = false
+    const activity = new Map<string, string>()
+
+    function clearSnapshot() {
+      window.clearTimeout(stale)
+      sampleFresh = false
+      setSnapshot(undefined)
+    }
+
+    function connect() {
+      const endpoint = new URL('/api/traffic/live', window.location.href)
+      endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:' : 'ws:'
+      const connection = new WebSocket(endpoint)
+      socket.current = connection
+
+      connection.onopen = () => {
+        if (socket.current !== connection) return
+        setState('waiting')
+        sendSubscription(connection, scope.current)
       }
-      for (const [id, presence] of Object.entries(incoming.presence ?? {})) {
-        const reported = presence?.lastActiveAt
-        if (typeof reported !== 'string') continue
-        const timestamp = Date.parse(reported)
-        const previous = lastActiveAt.get(id)
-        if (Number.isFinite(timestamp) && (!previous || timestamp > Date.parse(previous))) {
-          lastActiveAt.set(id, reported)
+
+      connection.onmessage = ({ data }) => {
+        if (socket.current !== connection || typeof data !== 'string') return
+        const incoming = parseSnapshot(data)
+        if (!incoming) return
+
+        let activityChanged = false
+        for (const [id, presence] of Object.entries(incoming.presence ?? {})) {
+          const reported = presence?.lastActiveAt
+          if (typeof reported !== 'string') continue
+          const timestamp = Date.parse(reported)
+          const previous = activity.get(id)
+          if (Number.isFinite(timestamp) && (!previous || timestamp > Date.parse(previous))) {
+            activity.set(id, reported)
+            activityChanged = true
+          }
         }
-      }
-      retryDelay = 1000
-      if (incoming.at === null) {
-        clearData()
-        state.value = 'waiting'
-      } else if (incoming.at !== lastSample) {
-        lastSample = incoming.at
-        state.value = 'live'
-        window.clearTimeout(stale)
-        stale = window.setTimeout(() => {
-          snapshot.value = undefined
-          state.value = 'waiting'
-        }, liveSampleTimeout)
-      } else if (state.value !== 'live') {
-        return
-      }
-      snapshot.value = incoming
-    }
-    connection.onclose = ({ code }) => {
-      if (socket !== connection) return
-      socket = undefined
-      clearData()
-      lastSample = undefined
-      if (!enabled.value) return
-      if (code === 4001) {
-        expired()
-        return
-      }
-      state.value = 'reconnecting'
-      retry = window.setTimeout(connect, retryDelay)
-      retryDelay = Math.min(retryDelay * 2, 15000)
-    }
-  }
+        if (activityChanged) setLastActiveAt(new Map(activity))
 
-  function stop() {
-    window.clearTimeout(retry)
-    clearData()
-    lastActiveAt.clear()
-    const connection = socket
-    socket = undefined
-    connection?.close()
-    retryDelay = 1000
-    lastSample = undefined
-    state.value = 'connecting'
-  }
+        retryDelay = 1000
+        if (incoming.at === null) {
+          clearSnapshot()
+          setState('waiting')
+          return
+        }
+        if (incoming.at !== lastSample) {
+          lastSample = incoming.at
+          sampleFresh = true
+          setState('live')
+          window.clearTimeout(stale)
+          stale = window.setTimeout(() => {
+            clearSnapshot()
+            setState('waiting')
+          }, liveSampleTimeout)
+        }
+        if (sampleFresh) setSnapshot(incoming)
+      }
 
-  watch(enabled, (active) => active ? connect() : stop())
-  watch(deviceId, subscribe)
-  onBeforeUnmount(stop)
+      connection.onclose = ({ code }) => {
+        if (socket.current !== connection) return
+        socket.current = undefined
+        clearSnapshot()
+        lastSample = undefined
+        if (code === 4001) {
+          onExpired()
+          return
+        }
+        setState('reconnecting')
+        retry = window.setTimeout(connect, retryDelay)
+        retryDelay = Math.min(retryDelay * 2, 15_000)
+      }
+    }
+
+    connect()
+    return () => {
+      window.clearTimeout(retry)
+      window.clearTimeout(stale)
+      const connection = socket.current
+      socket.current = undefined
+      connection?.close()
+    }
+  }, [enabled, onExpired])
 
   return { snapshot, state, lastActiveAt }
+}
+
+function parseSnapshot(payload: string): LiveTraffic | undefined {
+  try {
+    const message = JSON.parse(payload)
+    if (message?.code !== 0) return undefined
+    const incoming: LiveTraffic = message.data
+    if (!incoming || typeof incoming.deviceId !== 'string' || !Array.isArray(incoming.history) ||
+        !incoming.devices || (incoming.at !== null && !Number.isFinite(Date.parse(incoming.at)))) return undefined
+    return incoming
+  } catch {
+    return undefined
+  }
 }
