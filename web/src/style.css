@@ -25,63 +25,47 @@ body {
 }
 
 .panel-login {
-  display: grid;
-  place-items: center;
   min-height: 100vh;
   min-height: 100svh;
-  padding: 20px;
+  padding: clamp(48px, 14vh, 132px) clamp(16px, 5vw, 36px) 32px;
   background:
-    radial-gradient(ellipse at 50% 42%, #f5f9ff 10%, transparent 72%),
-    linear-gradient(90deg, #c9d9ee70 1px, transparent 1px) center / 32px 32px,
-    linear-gradient(#c9d9ee70 1px, transparent 1px) center / 32px 32px,
-    #e9f0fa;
+    radial-gradient(ellipse at 10% 0%, #e0ecfc, transparent 54%),
+    radial-gradient(ellipse at 92% 100%, #e4edfa, transparent 52%),
+    #f6f8fc;
 }
 
-.panel-login-card {
-  width: min(100%, 420px);
-  padding: clamp(20px, 6vw, 36px);
-  border: 1px solid #dce6f3;
-  border-top: 3px solid #145abb;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 20px 60px #14294914;
-}
-
-.panel-login-card .ant-pro-form-login-container {
+.panel-login .ant-pro-form-login-container {
   padding: 0;
   overflow: visible;
 }
 
-.panel-login-card .ant-pro-form-login-header {
-  flex-direction: column;
-  gap: 14px;
+.panel-login .ant-pro-form-login-header {
+  min-height: 44px;
   height: auto;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
-.panel-login-card .ant-pro-form-login-title {
-  inset-block-start: auto;
+.panel-login .ant-pro-form-login-title {
+  max-width: min(100% - 58px, 560px);
+  inset-block-start: 0;
   color: #172740;
-  font-size: clamp(21px, 5vw, 26px);
+  font-size: clamp(21px, 5vw, 32px);
   overflow-wrap: anywhere;
 }
 
-.panel-login-card .ant-pro-form-login-logo {
-  margin-inline-end: 0;
+.panel-login .ant-pro-form-login-logo {
+  flex: none;
+  margin-inline-end: 14px;
 }
 
-.panel-login-card .panel-brand {
+.panel-login .panel-brand {
   width: 44px;
   height: 44px;
   font-size: 23px;
 }
 
-.panel-login-card .ant-pro-form-login-desc {
-  margin-block: 6px 24px;
-}
-
-.panel-login-card .ant-pro-form-login-main {
-  min-width: 0;
+.panel-login .ant-pro-form-login-desc {
+  margin-block: 10px 32px;
 }
 
 .panel-login-error {
@@ -92,8 +76,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 160px;
-  gap: 12px;
+  gap: 10px;
   color: #52647e;
 }
 
@@ -112,11 +95,6 @@ body {
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.panel-layout .ant-pro-page-container {
-  max-width: 1600px;
-  margin-inline: auto;
 }
 
 .panel-page-title {

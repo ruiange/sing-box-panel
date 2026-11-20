@@ -1,4 +1,4 @@
-import { CloudServerOutlined, LockOutlined } from '@ant-design/icons'
+import { CloudServerOutlined, LockOutlined, UserOutlined } from '@ant-design/icons'
 import { LoginForm, ProFormText } from '@ant-design/pro-components'
 import { Alert, Spin } from 'antd'
 
@@ -15,29 +15,49 @@ export function PanelBrand() {
 
 export default function PanelLogin({ siteTitle, checking, error, onLogin }: PanelLoginProps) {
   return (
-    <main className="panel-login">
-      <section className="panel-login-card" aria-label="管理员登录">
-        {checking ? (
-          <div className="panel-login-pending" role="status"><Spin />正在连接面板…</div>
-        ) : (
-          <LoginForm<{ password: string }>
-            logo={<PanelBrand />}
-            title={siteTitle}
-            subTitle="管理员登录"
-            contentStyle={{ width: '100%' }}
-            onFinish={({ password }) => onLogin(password)}
-            submitter={{ searchConfig: { submitText: '登录' }, submitButtonProps: { size: 'large' } }}
-          >
-            {error && <Alert className="panel-login-error" type="error" showIcon message={error} />}
+    <main className="panel-login" aria-label="管理员登录">
+      <LoginForm<{ username: string; password: string }>
+        name="admin-login"
+        method="post"
+        logo={<PanelBrand />}
+        title={siteTitle}
+        subTitle="管理员登录"
+        contentStyle={{ width: 'min(100%, 328px)', minWidth: 0 }}
+        message={checking ? (
+          <div className="panel-login-pending" role="status"><Spin size="small" />正在连接面板…</div>
+        ) : error ? (
+          <Alert className="panel-login-error" type="error" showIcon message={error} />
+        ) : undefined}
+        initialValues={{ username: 'root' }}
+        onFinish={({ password }) => onLogin(password)}
+        submitter={checking ? false : { searchConfig: { submitText: '登录' } }}
+      >
+        {!checking && (
+          <>
+            <ProFormText
+              name="username"
+              label="管理员账号"
+              fieldProps={{
+                name: 'username', autoComplete: 'username', autoCapitalize: 'none', spellCheck: false,
+                size: 'large', prefix: <UserOutlined aria-hidden="true" />,
+              }}
+              rules={[
+                { required: true, message: '请输入管理员账号' },
+                { pattern: /^root$/, message: '管理员账号为 root' },
+              ]}
+            />
             <ProFormText.Password
               name="password"
               label="管理员密码"
-              fieldProps={{ autoComplete: 'current-password', autoFocus: true, size: 'large', prefix: <LockOutlined /> }}
+              fieldProps={{
+                name: 'password', autoComplete: 'current-password',
+                size: 'large', prefix: <LockOutlined aria-hidden="true" />,
+              }}
               rules={[{ required: true, message: '请输入管理员密码' }]}
             />
-          </LoginForm>
+          </>
         )}
-      </section>
+      </LoginForm>
     </main>
   )
 }

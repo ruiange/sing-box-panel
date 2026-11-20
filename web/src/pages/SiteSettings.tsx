@@ -48,7 +48,7 @@ export default function SiteSettings({ siteTitle, titleLoading, titleError, onLo
   }
 
   return (
-    <Flex vertical gap="middle" style={{ maxWidth: 820 }}>
+    <Flex vertical gap="middle">
       <ProCard bordered title="网站标题">
         <Flex vertical gap="middle" align="start">
           <Typography.Text id="site-title-help" type="secondary">显示在登录页、后台和浏览器标签页，最多 80 个字符。</Typography.Text>

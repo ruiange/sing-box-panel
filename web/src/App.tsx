@@ -1,10 +1,10 @@
 import {
-  ApiOutlined, DashboardOutlined, LineChartOutlined, LogoutOutlined, MobileOutlined, PlusOutlined, ReloadOutlined,
-  SettingOutlined,
+  ApiOutlined, DashboardOutlined, LineChartOutlined, LogoutOutlined, MobileOutlined, PieChartOutlined,
+  PlusOutlined, ReloadOutlined, SettingOutlined,
 } from '@ant-design/icons'
 import { PageContainer, ProCard, ProLayout } from '@ant-design/pro-components'
-import { Alert, App as AntApp, Badge, Button, Input, Select, Tooltip } from 'antd'
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { Alert, App as AntApp, Badge, Button, Input, Select, Spin, Tooltip } from 'antd'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { api, APIError, errorMessage, type Device, type LiveRatePoint, type SiteSettings as SiteSettingsResponse } from './api'
 import DeviceDialogs, { type DeviceDialog } from './components/DeviceDialogs'
 import DeviceTable from './components/DeviceTable'
@@ -14,10 +14,13 @@ import SiteSettings from './pages/SiteSettings'
 import { useLiveTraffic } from './useLiveTraffic'
 import { usePanelData } from './usePanelData'
 
+const TrafficAnalysis = lazy(() => import('./pages/TrafficAnalysis'))
+
 const pages = {
   overview: { path: '/overview', name: '运行概览', icon: <DashboardOutlined /> },
   devices: { path: '/devices', name: '设备管理', icon: <MobileOutlined /> },
   traffic: { path: '/traffic', name: '流量统计', icon: <LineChartOutlined /> },
+  analysis: { path: '/analysis', name: '流量分析', icon: <PieChartOutlined /> },
   access: { path: '/access', name: '网站设置', icon: <SettingOutlined /> },
 }
 const layoutRoute = {
@@ -48,7 +51,7 @@ function readHash() {
 function readLocation(hash: string): { view: View; scope: string } {
   const [view, search] = hash.slice(1).split('?')
   if (view === 'traffic') return { view, scope: new URLSearchParams(search).get('deviceId') ?? '' }
-  if (view === 'devices' || view === 'access') return { view, scope: '' }
+  if (view === 'devices' || view === 'analysis' || view === 'access') return { view, scope: '' }
   return { view: 'overview', scope: '' }
 }
 
@@ -64,6 +67,7 @@ export default function App() {
   const [loginError, setLoginError] = useState('')
   const [loggingOut, setLoggingOut] = useState(false)
   const [range, setRange] = useState<HistoryRange>('days=7')
+  const [analysisRange, setAnalysisRange] = useState<HistoryRange>('days=7')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<DeviceFilter>('all')
   const [dialog, setDialog] = useState<DeviceDialog>()
@@ -87,13 +91,15 @@ export default function App() {
   }, [message])
 
   const ready = stage === 'ready'
+  const requestedRange = view === 'analysis' ? analysisRange : range
   const { devices, loading, deviceError, traffic, scopedTraffic, refresh, updateDevice } = usePanelData(
-    ready, scope, range, onExpired, onMissingDevice,
+    ready, scope, requestedRange, onExpired, onMissingDevice,
   )
   const live = useLiveTraffic(ready, scope, onExpired)
   const selectedDevice = devices.find((device) => device.id === scope)
   const visibleTraffic = scope ? (scopedTraffic?.deviceId === scope ? scopedTraffic : undefined) : traffic
-  const chartData = visibleTraffic?.range === range ? visibleTraffic.traffic : undefined
+  const chartData = visibleTraffic?.range === requestedRange ? visibleTraffic.traffic : undefined
+  const analysisTrafficError = traffic?.errorRange === analysisRange ? traffic.error : undefined
   const activeCount = devices.filter((device) => device.enabled).length
   const currentHistory = live.snapshot && live.snapshot.deviceId === scope ? live.snapshot.history : emptyLiveHistory
   const rows = useMemo(() => {
@@ -102,7 +108,7 @@ export default function App() {
   }, [devices, traffic?.traffic])
   const visibleRows = useMemo(() => {
     if (view === 'overview') return rows.slice(0, 5)
-    if (view === 'traffic') return rows
+    if (view !== 'devices') return rows
     const search = query.trim().toLocaleLowerCase()
     return rows.filter((device) => device.name.toLocaleLowerCase().includes(search) &&
       (filter === 'all' || device.enabled === (filter === 'enabled')))
@@ -224,6 +230,12 @@ export default function App() {
     ...(scope && !selectedDevice ? [{ value: scope, label: '所选设备' }] : []),
     ...devices.map((device) => ({ value: device.id, label: device.name + (device.enabled ? '' : '（已停用）') })),
   ]
+  const pageAction = view === 'traffic' ? (
+    <label className="panel-scope">
+      <span>统计设备</span>
+      <Select aria-label="统计设备" value={scope} options={scopeOptions} onChange={showDeviceTraffic} />
+    </label>
+  ) : view === 'overview' || view === 'devices' ? createButton : undefined
 
   return (
     <ProLayout
@@ -231,6 +243,7 @@ export default function App() {
       title={displayTitle}
       logo={<PanelBrand />}
       layout="mix"
+      contentWidth="Fluid"
       fixedHeader
       fixSiderbar
       siderWidth={216}
@@ -269,18 +282,32 @@ export default function App() {
     >
       <PageContainer
         title={<h1 className="panel-page-title">{pages[view].name}</h1>}
-        extra={view === 'access' ? undefined : view === 'traffic' ? (
-          <label className="panel-scope">
-            <span>统计设备</span>
-            <Select aria-label="统计设备" value={scope} options={scopeOptions} onChange={showDeviceTraffic} />
-          </label>
-        ) : createButton}
+        extra={pageAction}
       >
         {view === 'access' ? (
           <SiteSettings
             siteTitle={siteTitle} titleLoading={titleLoading} titleError={titleError}
             onLoadTitle={loadSiteTitle} onTitleSaved={applySiteTitle} onExpired={onExpired}
           />
+        ) : view === 'analysis' ? (
+          <Suspense fallback={(
+            <div style={{ display: 'grid', placeItems: 'center', minHeight: 180 }} role="status">
+              <Spin tip="正在加载流量分析…"><div style={{ height: 64 }} /></Spin>
+            </div>
+          )}>
+            <TrafficAnalysis
+              range={analysisRange}
+              onRangeChange={setAnalysisRange}
+              chartData={chartData}
+              traffic={traffic?.traffic}
+              devices={devices}
+              presence={live.snapshot?.presence}
+              liveState={live.state}
+              loading={loading || (!chartData && !analysisTrafficError)}
+              trafficError={analysisTrafficError}
+              deviceError={deviceError}
+            />
+          </Suspense>
         ) : (
           <div className="panel-stack">
             {deviceError && <Alert type="error" showIcon message={deviceError} />}

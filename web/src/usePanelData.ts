@@ -11,6 +11,7 @@ interface TrafficQuery {
 interface TrafficResult extends TrafficQuery {
   traffic?: Traffic
   error: string
+  errorRange?: HistoryRange
 }
 
 interface PanelData {
@@ -117,5 +118,11 @@ function readTrafficResult(
 ): TrafficResult {
   if (result.status === 'fulfilled') return { ...query, traffic: result.value, error: '' }
   const last = previous?.deviceId === query.deviceId ? previous : undefined
-  return { ...query, range: last?.range ?? query.range, traffic: last?.traffic, error: errorMessage(result.reason) }
+  return {
+    ...query,
+    range: last?.range ?? query.range,
+    traffic: last?.traffic,
+    error: errorMessage(result.reason),
+    errorRange: query.range,
+  }
 }
