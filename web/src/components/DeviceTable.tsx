@@ -14,7 +14,6 @@ interface DeviceTableProps {
   presence?: Record<string, DevicePresence>
   lastActiveAt: ReadonlyMap<string, string>
   timeZone?: string
-  selectedDeviceId: string
   loading: boolean
   emptyLabel: string
   emptyAction?: ReactNode
@@ -49,7 +48,7 @@ function Directions({ upload, download, rate = false }: { upload: string; downlo
 }
 
 export default function DeviceTable({
-  devices, rates, presence, lastActiveAt, timeZone, selectedDeviceId, loading, emptyLabel, emptyAction,
+  devices, rates, presence, lastActiveAt, timeZone, loading, emptyLabel, emptyAction,
   onSubscription, onRename, onToggle, onTraffic, onDestinations,
 }: DeviceTableProps) {
   const { token } = theme.useToken()
@@ -136,7 +135,6 @@ export default function DeviceTable({
         <Flex align="center" gap={8}>
           <Button
             size="small" type="link" style={{ paddingInline: 0 }}
-            aria-pressed={selectedDeviceId === device.id}
             aria-label={`查看 ${device.name} 的流量`}
             onClick={() => onTraffic(device)}
           >流量</Button>
@@ -181,8 +179,6 @@ export default function DeviceTable({
       size="middle"
       scroll={{ x: 1046 }}
       loading={loading && devices.length === 0}
-      rowClassName={(device) => device.id === selectedDeviceId ? 'device-table-selected' : ''}
-      onRow={(device) => device.id === selectedDeviceId ? { style: { background: token.colorPrimaryBg } } : {}}
       locale={{
         emptyText: (
           <Empty

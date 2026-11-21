@@ -1,51 +1,12 @@
 import { ReloadOutlined } from '@ant-design/icons'
 import { ProCard } from '@ant-design/pro-components'
 import { Alert, Button, Flex, Form, Input, Spin, Typography } from 'antd'
-import { useEffect, useRef, useState } from 'react'
-import { api, APIError, errorMessage, type SiteSettings as SiteConfiguration } from '../api'
 import AccessSettings from '../components/AccessSettings'
+import { useSiteTitleForm, type SiteSettingsProps } from '../useSiteTitleForm'
 
-interface SiteSettingsProps {
-  siteTitle?: string
-  titleLoading: boolean
-  titleError: string
-  onLoadTitle: () => Promise<void>
-  onTitleSaved: (title: string) => void
-  onExpired: () => void
-}
-
-export default function SiteSettings({ siteTitle, titleLoading, titleError, onLoadTitle, onTitleSaved, onExpired }: SiteSettingsProps) {
-  const [draft, setDraft] = useState(siteTitle ?? '')
-  const [saving, setSaving] = useState(false)
-  const [saveError, setSaveError] = useState('')
-  const [saved, setSaved] = useState(false)
-  const pendingSave = useRef(false)
-  const title = draft.trim()
-  const tooLong = Array.from(title).length > 80
-  const canSave = Boolean(siteTitle && title && title !== siteTitle && !tooLong)
-
-  useEffect(() => {
-    setDraft(siteTitle ?? '')
-  }, [siteTitle])
-
-  async function save() {
-    if (pendingSave.current || !canSave) return
-    pendingSave.current = true
-    setSaving(true)
-    setSaveError('')
-    setSaved(false)
-    try {
-      const current = await api<SiteConfiguration>('/site', 'PUT', { title })
-      onTitleSaved(current.title)
-      setSaved(true)
-    } catch (failure) {
-      if (failure instanceof APIError && failure.status === 401) onExpired()
-      else setSaveError(errorMessage(failure))
-    } finally {
-      pendingSave.current = false
-      setSaving(false)
-    }
-  }
+export default function SiteSettings(props: SiteSettingsProps) {
+  const { siteTitle, titleLoading, titleError, onLoadTitle, onExpired } = props
+  const { draft, saving, saveError, saved, tooLong, canSave, changeTitle, save } = useSiteTitleForm(props)
 
   return (
     <Flex vertical gap="middle">
@@ -61,11 +22,7 @@ export default function SiteSettings({ siteTitle, titleLoading, titleError, onLo
                   aria-describedby={tooLong ? 'site-title-limit' : 'site-title-help'}
                   aria-invalid={tooLong || undefined}
                   status={tooLong ? 'error' : undefined}
-                  onChange={(event) => {
-                    setDraft(event.target.value)
-                    setSaveError('')
-                    setSaved(false)
-                  }}
+                  onChange={(event) => changeTitle(event.target.value)}
                 />
                 {tooLong && <Typography.Text id="site-title-limit" type="danger">网站标题最多 80 个字符。</Typography.Text>}
                 {saveError && <Alert type="error" showIcon message={saveError} />}

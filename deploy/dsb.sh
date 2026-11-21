@@ -8,34 +8,96 @@ panel=/usr/local/bin/sing-box-panel
 config=/etc/sing-box-panel/panel.env
 launcher_url=https://github.com/ruiange/sing-box-panel/releases/latest/download/install-from-release.sh
 
+print_color() {
+    local style=$1 text=$2
+    if [[ -t 1 && ${TERM:-dumb} != dumb && -z ${NO_COLOR:-} ]]; then
+        printf '\033[%sm%s\033[0m' "$style" "$text"
+    else
+        printf '%s' "$text"
+    fi
+}
+
+print_line() {
+    print_color "$@"
+    printf '\n'
+}
+
+print_result() {
+    print_color '1;36' "$1："
+    printf '%s\n' "$2"
+}
+
+farewell() {
+    local size row
+    # Three 22-column glyphs with two spaces between them. Leave one column to avoid wrapping.
+    if [[ -t 1 && ${TERM:-dumb} != dumb ]] &&
+        { size=$(stty size <&3 2>/dev/null); } 3>&1 &&
+        [[ ${size##* } -gt 70 ]]; then
+        local -a qu=(
+            '    ⣶⢲⠄⢠⣄⣀⣀⣀⣀⣀⣠⣄      '
+            ' ⢀⣀⣀⣿⢸⣀⣸⣶⡆⡶⠒⢲⢠⣶⣟⣀⣀⣀⣀⡀ '
+            ' ⠸⠭⠭⣥⢨⠭⠽⢿⡇⣇⣀⣸⢸⡿⠶⠶⠶⢶⢄⡇ '
+            ' ⣀⣀⣀⣿⢸⣀⣀⣸⡇⡭⠭⢭⢸⣧⡶⣆ ⣼⢸⠇ '
+            ' ⠯⠭⠭⢭⢨⡭⠭⢿⡇⡇ ⢸⢸⡇⢻⡝⣧⡏⡿  '
+            '  ⡶⣦⢸⢸⣇⣀⣸⡇⣭⣭⣭⢸⡇ ⠹⡎⢹⠇  '
+            '  ⡇⡏⢸⢨⡭⠭⢿⡇⡇ ⢸⢸⣧⡄⣼⢣⡜⣧  '
+            ' ⢸⡇⢷⣼⢸⡇⣠⣼⠇⢷⣚⣯⢠⣶⡿⣣⠟⢻⡜⣇ '
+            ' ⣼⢰⣿⣟⢸⡇⠻⠖⠛⠉⠁⢸⢸⣿⣵⠋  ⠻⠋ '
+            '⢠⡏⡾ ⠙⢶⣝⡓⠶⠤⢤⣤⣼⣾⣧⣤⣤⣤⠤⠤⢤⡆'
+            '⠘⠻⠃   ⠈⠉⠛⠓⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠚⠁'
+        )
+        local -a duo=(
+            '        ⢀⡴⢶⡤          '
+            '      ⣀⡴⢛⣐⣛⣒⣒⣒⣒⡒⠒⣦    '
+            '   ⣀⡴⢞⣫⣾⠋⠉⠉⠉⠉⣩⡿⣣⡾⠋    '
+            '⢰⣶⣛⣭⠶⠋⠿⣯⣛⢦⣄⣴⢞⣩⠞⠋      '
+            ' ⠉⠉   ⢀⣠⡽⢗⣨⡶⣫⡿⣲⡦      '
+            ' ⢀⣀⣤⠴⢞⣋⣥⠶⢋⣥⠾⣋⣘⣛⣒⣒⣒⣒⡒⢳⡆'
+            '⠘⣯⡥⠶⠚⣋⣡⡴⢞⣫⣵⣟⠁   ⢀⣴⢟⣵⠟ '
+            '   ⢾⣟⣭⠵⠞⠋⠙⠿⣭⡳⢦⣤⡶⣋⡴⠟⠁  '
+            '    ⠉    ⢀⣠⡤⠟⣢⡴⠞⠋     '
+            '  ⣀⣠⣤⡤⠶⢖⣛⣭⡵⠞⠋⠉        '
+            '  ⠘⠷⠶⠚⠛⠉⠉             '
+        )
+        for row in "${!qu[@]}"; do
+            print_color '1;36' "${qu[row]}"
+            printf '  '
+            print_color '1;33' "${duo[row]}"
+            printf '  '
+            print_line '1;35' "${duo[row]}"
+        done
+        printf '\n'
+    fi
+    print_line 32 '我是趣多多 我为你的流量护航～'
+}
+
 menu() {
-    printf '%s\n' \
-        '============== 趣多多流量冠军 ==============' \
-        '(1) 查看当前版本' \
-        '(2) 查询最新版本' \
-        '(3) 下载最新安装包' \
-        '(4) 一键升级到最新版本' \
-        '(5) 查看后台密码' \
-        '(6) 查看后台地址' \
-        '(0) 退出' \
-        '============================================'
+    local number
+    local -a labels=(退出 查看当前版本 查询最新版本 下载最新安装包 一键升级到最新版本 查看后台密码 查看后台地址)
+    print_line '1;36' '============== 趣多多流量冠军 =============='
+    for number in 1 2 3 4 5 6 0; do
+        print_color 36 "($number)"
+        printf ' %s\n' "${labels[number]}"
+    done
+    print_line 36 '============================================'
 }
 
 usage() {
-    printf '%s\n' '用法：dsb [0|1|2|3 [下载目录]|4|5|6]' '运行 dsb 打开菜单，也可直接传入编号。'
+    print_line "${1:-36}" '用法：dsb [0|1|2|3 [下载目录]|4|5|6]'
+    printf '%s\n' '运行 dsb 打开菜单，也可直接传入编号。'
 }
 
 usage_error() {
-    usage >&2
+    usage 31 >&2
     exit 2
 }
 
 run_panel() {
     if [[ ! -x $panel ]]; then
-        printf '%s\n' '找不到趣多多流量冠军程序，请先安装面板。' >&2
+        print_line 31 '找不到趣多多流量冠军程序，请先安装面板。' >&2
         exit 1
     fi
-    exec "$panel" "$@"
+    DSB_COLOR=1 exec "$panel" "$@"
 }
 
 download_launcher_with_wget() {
@@ -71,30 +133,30 @@ download_launcher_with_wget() {
 
 upgrade() (
     if [[ $EUID -ne 0 ]]; then
-        printf '%s\n' '升级需要 root 权限，请运行 sudo dsb 4。' >&2
+        print_line 31 '升级需要 root 权限，请运行 sudo dsb 4。' >&2
         exit 1
     fi
-    stage=$(mktemp -d) || { printf '%s\n' '创建升级临时目录失败。' >&2; exit 1; }
+    stage=$(mktemp -d) || { print_line 31 '创建升级临时目录失败。' >&2; exit 1; }
     trap 'rm -rf -- "$stage"' EXIT
     trap 'exit 130' INT
     trap 'exit 143' TERM
 
-    printf '%s\n' '正在下载最新升级入口…' >&2
+    print_line 33 '正在下载最新升级入口…' >&2
     if command -v curl >/dev/null; then
         curl --disable --fail --silent --show-error --location --max-redirs 8 \
             --proto '=https' --proto-redir '=https' --connect-timeout 15 --max-time 60 --retry 2 \
             --output "$stage/install-from-release.sh" -- "$launcher_url"
     elif command -v wget >/dev/null; then
         download_launcher_with_wget "$stage/install-from-release.sh" || {
-            printf '%s\n' '下载升级入口失败，请检查 GitHub 连通性。' >&2
+            print_line 31 '下载升级入口失败，请检查 GitHub 连通性。' >&2
             exit 1
         }
     else
-        printf '%s\n' '找不到 curl 或 wget，请先安装其中一个。' >&2
+        print_line 31 '找不到 curl 或 wget，请先安装其中一个。' >&2
         exit 1
     fi
     if [[ ! -s $stage/install-from-release.sh ]]; then
-        printf '%s\n' '下载的升级入口为空。' >&2
+        print_line 31 '下载的升级入口为空。' >&2
         exit 1
     fi
     bash "$stage/install-from-release.sh" --upgrade
@@ -103,11 +165,11 @@ upgrade() (
 require_config() {
     local label=$1 number=$2
     if [[ $EUID -ne 0 ]]; then
-        printf '查看%s需要 root 权限，请运行 sudo dsb %s。\n' "$label" "$number" >&2
+        print_line 31 "查看${label}需要 root 权限，请运行 sudo dsb ${number}。" >&2
         return 1
     fi
     if [[ ! -f $config || ! -r $config ]]; then
-        printf '无法读取面板配置 %s。\n' "$config" >&2
+        print_line 31 "无法读取面板配置 ${config}。" >&2
         return 1
     fi
 }
@@ -135,10 +197,10 @@ show_setting() {
     local key=$1 label=$2 number=$3 value
     require_config "$label" "$number" || return 1
     if ! value=$(read_setting "$key"); then
-        printf '未能读取%s。\n' "$label" >&2
+        print_line 31 "未能读取${label}。" >&2
         return 1
     fi
-    printf '%s：%s\n' "$label" "$value"
+    print_result "$label" "$value"
 }
 
 route_source() {
@@ -178,10 +240,10 @@ show_addresses() {
     local ipv4_url='^http://[0-9.]+:([0-9]+)/?$' ipv6_url='^http://\[[[:xdigit:]:]+\]:([0-9]+)/?$'
     require_config 后台地址 6 || return 1
     if ! public_url=$(read_setting PANEL_PUBLIC_URL); then
-        printf '%s\n' '未能读取后台地址。' >&2
+        print_line 31 '未能读取后台地址。' >&2
         return 1
     fi
-    printf '后台地址：%s\n' "$public_url"
+    print_result 后台地址 "$public_url"
 
     # An HTTPS certificate or reverse proxy may only cover the configured host.
     [[ $(read_setting PANEL_HTTPS_MODE) == http ]] || return 0
@@ -194,7 +256,7 @@ show_addresses() {
         domain_url=$(timeout 3 setpriv --reuid=sing-box-panel --regid=sing-box-panel \
             --clear-groups --no-new-privs -- "$panel" domain-url "$database" 2>/dev/null) &&
         [[ -n $domain_url ]]; then
-        printf '后台地址（域名）：%s\n' "$domain_url"
+        print_result '后台地址（域名）' "$domain_url"
     fi
 
     if [[ $public_url =~ $ipv6_url ]]; then
@@ -221,13 +283,14 @@ show_addresses() {
         label+='，公网出口'
     fi
     [[ $family == 4 ]] || address=[$address]
-    printf '后台地址（%s）：http://%s:%s\n' "$label" "$address" "$port"
+    print_result "后台地址（${label}）" "http://${address}:${port}"
 }
 
 if [[ $# -eq 0 ]]; then
     menu
     if [[ -t 0 ]]; then
-        read -r -p '请输入命令编号（0-6）：' choice || exit 0
+        print_color '1;33' '请输入命令编号（0-6）：' >&2
+        read -r choice || exit 0
     else
         read -r -t 1 choice || exit 0
     fi
@@ -239,7 +302,7 @@ fi
 
 case "$1" in
     -h|--help) usage ;;
-    0) printf '%s\n' '我是趣多多 我为你的流量护航～' ;;
+    0) farewell ;;
     1) run_panel version ;;
     2) run_panel latest ;;
     3) shift; run_panel download "$@" ;;

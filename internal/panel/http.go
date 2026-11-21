@@ -65,8 +65,11 @@ func (s *Service) Handler() http.Handler {
 	r.Get("/sub/{token}/{format}", s.subscription)
 	r.Get("/openapi.yaml", openAPIDocument)
 	r.Get("/docs", scalarPage)
+	r.Get("/m/docs", scalarPage)
+	r.Get("/m/docs/", scalarPage)
+
 	files := http.FileServer(http.Dir(s.cfg.WebDir))
-	r.Get("/*", func(w http.ResponseWriter, r *http.Request) {
+	serveWebFile := func(w http.ResponseWriter, r *http.Request) {
 		if path.Clean(r.URL.Path) != r.URL.Path || (r.URL.Path != "/" && !strings.HasPrefix(r.URL.Path, "/assets/") && r.URL.Path != "/favicon.svg") {
 			http.NotFound(w, r)
 			return
@@ -76,7 +79,22 @@ func (s *Service) Handler() http.Handler {
 			return
 		}
 		files.ServeHTTP(w, r)
-	})
+	}
+	servePanelPage := func(w http.ResponseWriter, r *http.Request) {
+		req := r.Clone(r.Context())
+		req.URL.Path = "/"
+		req.URL.RawPath = ""
+		serveWebFile(w, req)
+	}
+	r.Get("/m", servePanelPage)
+	r.Get("/m/", servePanelPage)
+	for _, page := range []string{"/overview", "/devices", "/traffic", "/analysis", "/access"} {
+		r.Get(page, servePanelPage)
+		r.Get(page+"/", servePanelPage)
+		r.Get("/m"+page, servePanelPage)
+		r.Get("/m"+page+"/", servePanelPage)
+	}
+	r.Get("/*", serveWebFile)
 	return r
 }
 

@@ -119,6 +119,29 @@ body {
   gap: 16px;
 }
 
+.panel-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.panel-overview-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 12px 20px;
+  margin: 0;
+}
+
+.panel-overview-details dt {
+  color: #52647e;
+}
+
+.panel-overview-details dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
 .panel-scope,
 .panel-filters {
   display: flex;
@@ -151,6 +174,12 @@ body {
 
 #live-heading {
   scroll-margin-top: 80px;
+}
+
+@media (max-width: 900px) {
+  .panel-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 575px) {

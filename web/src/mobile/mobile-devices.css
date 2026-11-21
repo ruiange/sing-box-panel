@@ -1,0 +1,319 @@
+.mobile-devices,
+.mobile-device-form {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mobile-device-tools,
+.mobile-device-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mobile-device-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-device-search .adm-search-bar {
+  --height: 44px;
+  --border-radius: 11px;
+  --background: var(--adm-color-background);
+}
+
+.mobile-device-tools > .adm-button {
+  flex: none;
+  min-height: 44px;
+  --border-radius: 11px;
+}
+
+.mobile-device-filters {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.mobile-device-filters > span {
+  color: var(--adm-color-text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-device-filters .adm-segmented-item-label,
+.mobile-device-form .adm-segmented-item-label {
+  min-height: 40px;
+  line-height: 40px;
+}
+
+.mobile-device-cards {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+}
+
+.mobile-device-cards > article {
+  min-width: 0;
+}
+
+.mobile-device-cards > .adm-empty,
+.mobile-device-cards > .mobile-device-placeholder {
+  grid-column: 1 / -1;
+}
+
+.mobile-device-card {
+  height: 100%;
+  border: 1px solid var(--adm-color-border);
+  border-radius: 16px;
+}
+
+.mobile-device-card .adm-card-header-title,
+.mobile-device-card-title > div {
+  min-width: 0;
+}
+
+.mobile-device-card-title {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.mobile-device-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: #eaf2ff;
+  background: color-mix(in srgb, var(--adm-color-primary) 12%, var(--adm-color-background));
+  color: var(--adm-color-primary);
+  font-size: 19px;
+}
+
+.mobile-device-card-title h2,
+.mobile-device-sheet-header h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 680;
+  overflow-wrap: anywhere;
+}
+
+.mobile-device-card-title p,
+.mobile-device-sheet-header p,
+.mobile-device-sheet-note {
+  margin: 4px 0 0;
+  color: var(--adm-color-text-secondary);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.mobile-device-status {
+  padding-inline: 8px;
+  white-space: nowrap;
+}
+
+.mobile-device-usage {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  border: 1px solid var(--adm-color-border);
+  border-radius: 10px;
+}
+
+.mobile-device-usage > div {
+  padding: 8px 4px;
+  text-align: center;
+}
+
+.mobile-device-usage > div + div {
+  border-inline-start: 1px solid var(--adm-color-border);
+}
+
+.mobile-device-usage dt,
+.mobile-device-rate > span:first-child {
+  color: var(--adm-color-text-secondary);
+  font-size: 12px;
+}
+
+.mobile-device-usage dd {
+  margin: 3px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.mobile-device-usage dd,
+.mobile-device-rate,
+.mobile-device-destination-list time {
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-device-rate {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 10px 0;
+  font-size: 12px;
+}
+
+.mobile-device-rate > span:not(:first-child) {
+  white-space: nowrap;
+}
+
+.mobile-device-rate .anticon {
+  margin-inline-end: 5px;
+  color: var(--adm-color-primary);
+}
+
+.mobile-device-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  border-block-start: 1px solid var(--adm-color-border);
+}
+
+.mobile-device-actions > .adm-button {
+  min-height: 44px;
+  padding-inline: 2px;
+  white-space: nowrap;
+}
+
+.mobile-device-sheet-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 88vh;
+  max-height: 88dvh;
+}
+
+.mobile-device-sheet {
+  border-radius: 20px 20px 0 0;
+  overflow: hidden;
+}
+
+.mobile-device-sheet-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--adm-color-border);
+}
+
+.mobile-device-sheet-header > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mobile-device-sheet-header > .adm-button {
+  flex: none;
+  min-height: 44px;
+}
+
+.mobile-device-sheet-content {
+  min-height: 0;
+  padding: 16px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  overflow: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.mobile-device-sheet-note {
+  font-size: 14px;
+}
+
+.mobile-device-field {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.mobile-device-field .adm-input {
+  min-width: 0;
+  min-height: 44px;
+  padding-inline: 11px;
+  border: 1px solid var(--adm-color-border);
+  border-radius: 10px;
+  --font-size: 16px;
+}
+
+.mobile-device-field .adm-input:focus-within {
+  border-color: var(--adm-color-primary);
+}
+
+.mobile-device-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.mobile-device-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mobile-device-detail-actions > .adm-button {
+  flex: 1;
+}
+
+.mobile-device-qr {
+  display: grid;
+  min-height: 196px;
+  justify-items: center;
+  align-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.mobile-device-qr img {
+  display: block;
+  width: 160px;
+  height: 160px;
+  background: #fff;
+}
+
+.mobile-device-destination-list {
+  overflow-wrap: anywhere;
+  --font-size: 14px;
+}
+
+.mobile-device-error,
+.mobile-device-warning {
+  margin: 0;
+  border-radius: 9px;
+  padding: 9px 11px;
+  background: #fff2f2;
+  color: #a12833;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.mobile-device-warning {
+  background: #fff3de;
+  color: #7a470d;
+}
+
+.mobile-device-placeholder {
+  display: flex;
+  min-height: 72px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--adm-color-text-secondary);
+}
+
+.mobile-device-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

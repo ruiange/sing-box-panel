@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, APIError, errorMessage, type Device, type Traffic } from './api'
 import { confirmDeviceCreations } from './deviceCreation'
-import type { HistoryRange } from './components/TrafficPanels'
+import type { HistoryRange } from './trafficOptions'
 
 interface TrafficQuery {
   deviceId: string

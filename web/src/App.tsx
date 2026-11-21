@@ -4,24 +4,28 @@ import {
 } from '@ant-design/icons'
 import { PageContainer, ProCard, ProLayout } from '@ant-design/pro-components'
 import { Alert, App as AntApp, Badge, Button, Input, Select, Spin, Tooltip } from 'antd'
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { api, APIError, errorMessage, type Device, type LiveRatePoint, type SiteSettings as SiteSettingsResponse } from './api'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { errorMessage, type Device, type LiveRatePoint } from './api'
 import DeviceDialogs, { type DeviceDialog } from './components/DeviceDialogs'
 import DeviceTable from './components/DeviceTable'
-import TrafficPanels, { liveLabels, type HistoryRange } from './components/TrafficPanels'
+import TrafficPanels from './components/TrafficPanels'
 import PanelLogin, { PanelBrand } from './pages/PanelLogin'
+import PanelOverview from './pages/PanelOverview'
 import SiteSettings from './pages/SiteSettings'
+import { navigatePanel, pageNames, readPanelLocation, usePanelLocation } from './panelRoutes'
+import { defaultRange, liveLabels, type HistoryRange } from './trafficOptions'
 import { useLiveTraffic } from './useLiveTraffic'
 import { usePanelData } from './usePanelData'
+import { usePanelSession } from './usePanelSession'
 
 const TrafficAnalysis = lazy(() => import('./pages/TrafficAnalysis'))
 
 const pages = {
-  overview: { path: '/overview', name: '运行概览', icon: <DashboardOutlined /> },
-  devices: { path: '/devices', name: '设备管理', icon: <MobileOutlined /> },
-  traffic: { path: '/traffic', name: '流量统计', icon: <LineChartOutlined /> },
-  analysis: { path: '/analysis', name: '流量分析', icon: <PieChartOutlined /> },
-  access: { path: '/access', name: '网站设置', icon: <SettingOutlined /> },
+  overview: { path: '/overview', name: pageNames.overview, icon: <DashboardOutlined /> },
+  devices: { path: '/devices', name: pageNames.devices, icon: <MobileOutlined /> },
+  traffic: { path: '/traffic', name: pageNames.traffic, icon: <LineChartOutlined /> },
+  analysis: { path: '/analysis', name: pageNames.analysis, icon: <PieChartOutlined /> },
+  access: { path: '/access', name: pageNames.access, icon: <SettingOutlined /> },
 }
 const layoutRoute = {
   path: '/',
@@ -32,66 +36,43 @@ const statusOptions = [
   { value: 'enabled', label: '已启用' },
   { value: 'disabled', label: '已停用' },
 ]
-const defaultSiteTitle = document.title
-const sessionExpiredMessage = '登录已过期，请重新登录。'
+const collectionStates = {
+  loading: { status: 'processing', text: '正在读取采集状态…' },
+  waiting: { status: 'default', text: '等待采集' },
+  ok: { status: 'success', text: '采集正常' },
+  error: { status: 'error', text: '采集异常' },
+  unavailable: { status: 'error', text: '采集状态不可用' },
+} as const
 const emptyLiveHistory: LiveRatePoint[] = []
 
-type View = keyof typeof pages
 type DeviceFilter = 'all' | 'enabled' | 'disabled'
 
-function subscribeToLocation(notify: () => void) {
-  window.addEventListener('hashchange', notify)
-  return () => window.removeEventListener('hashchange', notify)
-}
-
-function readHash() {
-  return window.location.hash
-}
-
-function readLocation(hash: string): { view: View; scope: string } {
-  const [view, search] = hash.slice(1).split('?')
-  if (view === 'traffic') return { view, scope: new URLSearchParams(search).get('deviceId') ?? '' }
-  if (view === 'devices' || view === 'analysis' || view === 'access') return { view, scope: '' }
-  return { view: 'overview', scope: '' }
-}
-
 function showDeviceTraffic(deviceId: string) {
-  window.location.hash = deviceId ? 'traffic?deviceId=' + encodeURIComponent(deviceId) : 'traffic'
+  navigatePanel('desktop', 'traffic', deviceId)
 }
 
 export default function App() {
   const { message } = AntApp.useApp()
-  const hash = useSyncExternalStore(subscribeToLocation, readHash)
-  const { view, scope } = readLocation(hash)
-  const [stage, setStage] = useState<'checking' | 'login' | 'ready'>('checking')
-  const [loginError, setLoginError] = useState('')
-  const [loggingOut, setLoggingOut] = useState(false)
-  const [range, setRange] = useState<HistoryRange>('days=7')
-  const [analysisRange, setAnalysisRange] = useState<HistoryRange>('days=7')
+  const { view, scope } = usePanelLocation()
+  const {
+    stage, login, loginError, logout, loggingOut, onExpired,
+    displayTitle, siteTitle, titleLoading, titleError, loadSiteTitle, applySiteTitle,
+  } = usePanelSession()
+  const [range, setRange] = useState<HistoryRange>(defaultRange)
+  const [analysisRange, setAnalysisRange] = useState<HistoryRange>(defaultRange)
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<DeviceFilter>('all')
   const [dialog, setDialog] = useState<DeviceDialog>()
-  const [siteTitle, setSiteTitle] = useState<string>()
-  const [titleLoading, setTitleLoading] = useState(true)
-  const [titleError, setTitleError] = useState('')
-  const titleRequest = useRef<AbortController>()
   const focusLiveHeading = useRef(false)
 
-  const showLogin = useCallback((reason = '') => {
-    setDialog(undefined)
-    setLoginError(reason)
-    setStage('login')
-  }, [])
-  const onExpired = useCallback(() => showLogin(sessionExpiredMessage), [showLogin])
   const onMissingDevice = useCallback((deviceId: string) => {
-    if (readLocation(readHash()).scope !== deviceId) return
-    window.history.replaceState(window.history.state, '', '#traffic')
-    window.dispatchEvent(new Event('hashchange'))
+    if (readPanelLocation().scope !== deviceId) return
+    navigatePanel('desktop', 'traffic', '', true)
     void message.info('所选设备已不存在，已切换到全部设备')
   }, [message])
 
   const ready = stage === 'ready'
-  const requestedRange = view === 'analysis' ? analysisRange : range
+  const requestedRange = view === 'analysis' ? analysisRange : view === 'traffic' ? range : defaultRange
   const { devices, loading, deviceError, traffic, scopedTraffic, refresh, updateDevice } = usePanelData(
     ready, scope, requestedRange, onExpired, onMissingDevice,
   )
@@ -100,64 +81,20 @@ export default function App() {
   const visibleTraffic = scope ? (scopedTraffic?.deviceId === scope ? scopedTraffic : undefined) : traffic
   const chartData = visibleTraffic?.range === requestedRange ? visibleTraffic.traffic : undefined
   const analysisTrafficError = traffic?.errorRange === analysisRange ? traffic.error : undefined
-  const activeCount = devices.filter((device) => device.enabled).length
   const currentHistory = live.snapshot && live.snapshot.deviceId === scope ? live.snapshot.history : emptyLiveHistory
-  const rows = useMemo(() => {
-    const usage = new Map(traffic?.traffic?.devices.map((entry) => [entry.id, entry]))
-    return devices.map((device) => ({ ...device, usage: usage.get(device.id) }))
-  }, [devices, traffic?.traffic])
   const visibleRows = useMemo(() => {
-    if (view === 'overview') return rows.slice(0, 5)
-    if (view !== 'devices') return rows
+    if (view !== 'devices') return []
     const search = query.trim().toLocaleLowerCase()
-    return rows.filter((device) => device.name.toLocaleLowerCase().includes(search) &&
-      (filter === 'all' || device.enabled === (filter === 'enabled')))
-  }, [view, rows, query, filter])
-
-  const loadSiteTitle = useCallback(async () => {
-    titleRequest.current?.abort()
-    const request = new AbortController()
-    titleRequest.current = request
-    setTitleLoading(true)
-    setTitleError('')
-    try {
-      const current = await api<SiteSettingsResponse>('/site', 'GET', undefined, request.signal)
-      if (!request.signal.aborted) setSiteTitle(current.title)
-    } catch (error) {
-      if (!request.signal.aborted) setTitleError(errorMessage(error))
-    } finally {
-      if (!request.signal.aborted) setTitleLoading(false)
-    }
-  }, [])
-
-  const applySiteTitle = useCallback((title: string) => {
-    titleRequest.current?.abort()
-    setSiteTitle(title)
-    setTitleError('')
-    setTitleLoading(false)
-  }, [])
+    const usage = new Map(traffic?.traffic?.devices.map((entry) => [entry.id, entry]))
+    return devices
+      .filter((device) => device.name.toLocaleLowerCase().includes(search) &&
+        (filter === 'all' || device.enabled === (filter === 'enabled')))
+      .map((device) => ({ ...device, usage: usage.get(device.id) }))
+  }, [view, devices, traffic?.traffic, query, filter])
 
   useEffect(() => {
-    const request = new AbortController()
-    void loadSiteTitle()
-    void api<{ authenticated: boolean }>('/auth/session', 'GET', undefined, request.signal).then(
-      (session) => {
-        if (request.signal.aborted) return
-        if (session?.authenticated) setStage('ready')
-        else showLogin()
-      },
-      (error) => {
-        if (!request.signal.aborted) showLogin(errorMessage(error))
-      },
-    )
-    return () => {
-      request.abort()
-      titleRequest.current?.abort()
-    }
-  }, [loadSiteTitle, showLogin])
-
-  const displayTitle = siteTitle ?? defaultSiteTitle
-  useEffect(() => { document.title = displayTitle }, [displayTitle])
+    if (!ready) setDialog(undefined)
+  }, [ready])
 
   useEffect(() => {
     if (!scope || !focusLiveHeading.current) return
@@ -165,38 +102,7 @@ export default function App() {
     document.getElementById('live-heading')?.focus()
   }, [scope])
 
-  async function login(password: string) {
-    setLoginError('')
-    try {
-      const result = await api<{ authenticated: boolean }>('/auth/login', 'POST', { password })
-      if (!result.authenticated) throw new Error('密码验证失败。')
-      setStage('ready')
-      return true
-    } catch (error) {
-      setLoginError(errorMessage(error))
-      return false
-    }
-  }
-
-  async function logout() {
-    if (loggingOut) return
-    setLoggingOut(true)
-    try {
-      await api('/auth/logout', 'POST')
-      showLogin()
-    } catch (error) {
-      if (error instanceof APIError && error.status === 401) showLogin()
-      else void message.error(errorMessage(error))
-    } finally {
-      setLoggingOut(false)
-    }
-  }
-
   function openDeviceTraffic(device: Device) {
-    if (scope === device.id) {
-      document.getElementById('live-heading')?.focus()
-      return
-    }
     focusLiveHeading.current = true
     showDeviceTraffic(device.id)
   }
@@ -215,9 +121,11 @@ export default function App() {
     return <PanelLogin siteTitle={displayTitle} checking={stage === 'checking'} error={loginError} onLogin={login} />
   }
 
-  const collectionFailed = Boolean(traffic?.error) || traffic?.traffic?.collectorStatus === 'error'
-  const collecting = traffic?.traffic?.collectorStatus === 'ok' && !collectionFailed
-  const collectionLabel = collectionFailed ? '采集异常' : collecting ? '采集正常' : '等待采集'
+  const collectionStatus = traffic?.error
+    ? 'unavailable'
+    : traffic?.traffic?.collectorStatus ?? (loading ? 'loading' : 'waiting')
+  const collection = collectionStates[collectionStatus]
+  const collectionBadge = <Badge {...collection} />
   const createButton = <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增设备</Button>
   const renderHomeLink = () => (
     <a className="panel-home-link" href="#overview" aria-label={`${displayTitle} · 面板概览`}>
@@ -235,7 +143,7 @@ export default function App() {
       <span>统计设备</span>
       <Select aria-label="统计设备" value={scope} options={scopeOptions} onChange={showDeviceTraffic} />
     </label>
-  ) : view === 'overview' || view === 'devices' ? createButton : undefined
+  ) : view === 'devices' ? createButton : undefined
 
   return (
     <ProLayout
@@ -269,14 +177,15 @@ export default function App() {
           aria-current={item.path === pages[view].path ? 'page' : undefined}>{dom}</a>
       )}
       actionsRender={() => [
-        view !== 'access' && <span key="collection" className="panel-collection" title={collectionLabel} aria-label={collectionLabel}>
-          <Badge status={collectionFailed ? 'error' : collecting ? 'success' : 'default'} text={collectionLabel} />
+        view !== 'access' && view !== 'overview' && <span key="collection" className="panel-collection" title={collection.text} aria-label={collection.text}>
+          {collectionBadge}
         </span>,
         view !== 'access' && <Tooltip key="refresh" title="刷新数据">
           <Button type="text" aria-label="刷新数据" icon={<ReloadOutlined />} loading={loading} onClick={() => void refresh()} />
         </Tooltip>,
         <Tooltip key="logout" title="退出登录">
-          <Button type="text" aria-label="退出登录" icon={<LogoutOutlined />} loading={loggingOut} onClick={() => void logout()} />
+          <Button type="text" aria-label="退出登录" icon={<LogoutOutlined />} loading={loggingOut}
+            onClick={() => void logout().catch((error) => message.error(errorMessage(error)))} />
         </Tooltip>,
       ]}
     >
@@ -308,12 +217,16 @@ export default function App() {
               deviceError={deviceError}
             />
           </Suspense>
-        ) : (
+        ) : view === 'overview' ? (
+          <PanelOverview
+            collectionBadge={collectionBadge} traffic={traffic?.traffic} liveState={live.state}
+            devices={devices} presence={live.snapshot?.presence} loading={loading} deviceError={deviceError}
+          />
+        ) : view === 'traffic' ? (
           <div className="panel-stack">
             {deviceError && <Alert type="error" showIcon message={deviceError} />}
-            {view !== 'devices' && visibleTraffic?.error && <Alert type="error" showIcon message={visibleTraffic.error} />}
-
-            {view !== 'devices' && <TrafficPanels
+            {visibleTraffic?.error && <Alert type="error" showIcon message={visibleTraffic.error} />}
+            <TrafficPanels
               traffic={visibleTraffic?.traffic}
               chartData={chartData}
               range={range}
@@ -325,27 +238,24 @@ export default function App() {
               rate={selectedDevice?.enabled ? live.snapshot?.devices[scope] : undefined}
               history={currentHistory}
               liveEnd={live.snapshot?.at ? Date.parse(live.snapshot.at) : Date.now()}
-            />}
-
-            <ProCard
-              bordered
-              title={<h2 className="panel-section-title">{view === 'traffic' ? '全部设备用量' : '设备列表'}</h2>}
-              extra={view === 'overview' ? <Button type="link" href="#devices">管理设备</Button> : undefined}
-            >
+            />
+          </div>
+        ) : (
+          <div className="panel-stack">
+            {deviceError && <Alert type="error" showIcon message={deviceError} />}
+            <ProCard bordered title={<h2 className="panel-section-title">设备列表</h2>}>
               <div className="panel-device-meta">
-                {deviceError ? '设备列表暂时不可用' : `已启用 ${activeCount} 台 · 共 ${devices.length} 台`}
+                {deviceError ? '设备列表暂时不可用' : `已启用 ${devices.filter((device) => device.enabled).length} 台 · 共 ${devices.length} 台`}
                 {!deviceError && devices.length > 0 && <> · {liveLabels[live.state]}</>}
               </div>
-              {view === 'devices' && (
-                <div className="panel-filters">
-                  <Input.Search aria-label="搜索设备名称" placeholder="搜索设备名称" allowClear
-                    value={query} onChange={(event) => setQuery(event.target.value)} />
-                  <Select<DeviceFilter> aria-label="按设备启用状态筛选" value={filter} options={statusOptions} onChange={setFilter} />
-                </div>
-              )}
+              <div className="panel-filters">
+                <Input.Search aria-label="搜索设备名称" placeholder="搜索设备名称" allowClear
+                  value={query} onChange={(event) => setQuery(event.target.value)} />
+                <Select<DeviceFilter> aria-label="按设备启用状态筛选" value={filter} options={statusOptions} onChange={setFilter} />
+              </div>
               <DeviceTable
                 devices={visibleRows} rates={live.snapshot?.devices} presence={live.snapshot?.presence}
-                lastActiveAt={live.lastActiveAt} timeZone={traffic?.traffic?.timeZone} selectedDeviceId={scope}
+                lastActiveAt={live.lastActiveAt} timeZone={traffic?.traffic?.timeZone}
                 loading={loading}
                 emptyLabel={deviceError ? '设备列表加载失败' : devices.length ? '没有符合条件的设备' : '还没有设备'}
                 emptyAction={!loading && !devices.length && !deviceError ? createButton : undefined}

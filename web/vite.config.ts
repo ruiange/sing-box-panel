@@ -11,6 +11,7 @@ export default defineConfig({
       '/api': { target: backend, ws: true },
       '/sub': backend,
       '/docs': backend,
+      '^/m/docs/?(?:\\?|$)': backend,
       '/openapi': backend,
     },
   },

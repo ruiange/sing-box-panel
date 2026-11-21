@@ -27,6 +27,12 @@ sbp=$(wget -qO- https://github.com/ruiange/sing-box-panel/releases/latest/downlo
 
 默认安装会启用 13 种节点协议，后台使用 HTTP。多公网 IP、自定义端口或 HTTPS 的用法见[开发与部署参考](docs/development.md)。
 
+## 手机访问
+
+手机访问后台地址会自动进入 `/m`，也可以直接打开 `/m`。移动端使用底部导航，页面地址为 `/m/overview`、`/m/devices`、`/m/traffic`、`/m/analysis` 和 `/m/access`。
+
+原来的 `/#traffic?deviceId=…` 链接可以继续使用，手机会跳转到 `/m/traffic?deviceId=…` 并保留所选设备。接口文档的移动端地址是 `/m/docs`。
+
 ## 修改网站标题
 
 登录后台，打开「网站设置」，填写「网站标题」并点击「保存标题」。新标题会显示在登录页、后台侧栏和浏览器标签页，重启后仍会保留。未设置时显示「趣多多流量冠军」。
@@ -56,7 +62,9 @@ sbp=$(wget -qO- https://github.com/ruiange/sing-box-panel/releases/latest/downlo
 
 ## 日常管理命令
 
-在服务器输入 `dsb` 打开菜单，也可直接带编号执行。菜单中输入 `0` 或执行 `dsb 0` 会打印「我是趣多多 我为你的流量护航～」并退出。
+在服务器输入 `dsb` 打开菜单，也可直接带编号执行。菜单中输入 `0` 或执行 `dsb 0` 会显示「趣多多」彩色描边字和告别语。窄终端或重定向输出时显示单行告别语。
+
+支持彩色的终端会高亮菜单、提示和结果。输出到管道或文件时自动使用纯文本，也可用 `NO_COLOR=1 dsb` 临时关闭颜色。
 
 | 命令 | 用途 |
 | --- | --- |

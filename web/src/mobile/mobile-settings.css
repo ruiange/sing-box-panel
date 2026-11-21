@@ -1,0 +1,170 @@
+.mobile-settings,
+.mobile-settings-form {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+}
+
+.mobile-settings .adm-card {
+  min-width: 0;
+  border-radius: 12px;
+}
+
+.mobile-settings .adm-card-header h2 {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.45;
+  font-weight: 650;
+}
+
+.mobile-settings .adm-button,
+.mobile-settings .adm-input {
+  min-height: 44px;
+}
+
+.mobile-settings .adm-input {
+  --font-size: 16px;
+  padding-inline: 12px;
+  border: 1px solid #cbd7e6;
+  border-radius: 8px;
+}
+
+.mobile-settings .adm-input:focus-within {
+  border-color: var(--adm-color-primary, #145abb);
+  outline: 1px solid var(--adm-color-primary, #145abb);
+}
+
+.mobile-settings .adm-input[data-invalid] {
+  border-color: #9b201e;
+}
+
+.mobile-settings a {
+  color: var(--adm-color-primary, #145abb);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+.mobile-settings-field {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.mobile-settings-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mobile-settings-note,
+.mobile-settings-loading,
+.mobile-settings-notice {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.mobile-settings-note,
+.mobile-settings-loading,
+.mobile-settings-details dt {
+  color: #52647e;
+}
+
+.mobile-settings-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mobile-settings-notice {
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: #edf4ff;
+  color: #234f84;
+}
+
+.mobile-settings-notice[data-tone='warning'] {
+  background: #fff6e5;
+  color: #794500;
+}
+
+.mobile-settings-notice[data-tone='error'] {
+  background: #fef1f0;
+  color: #9b201e;
+}
+
+.mobile-settings-notice[data-tone='success'] {
+  background: #eaf7f0;
+  color: #14633d;
+}
+
+.mobile-settings-details {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 12px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.mobile-settings-details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mobile-settings-access-form {
+  padding-top: 16px;
+  border-top: 1px solid var(--adm-border-color, #e7edf5);
+}
+
+.mobile-settings-modes,
+.mobile-settings-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 12px;
+}
+
+.mobile-settings-modes .adm-radio {
+  --font-size: 14px;
+  --icon-size: 18px;
+  min-height: 44px;
+}
+
+.mobile-settings-picker {
+  position: relative;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding-inline: 12px;
+  border: 1px solid #cbd7e6;
+  border-radius: 8px;
+  color: var(--adm-color-primary, #145abb);
+  font-size: 14px;
+}
+
+.mobile-settings-picker:focus-within {
+  outline: 2px solid var(--adm-color-primary, #145abb);
+  outline-offset: 2px;
+}
+
+.mobile-settings-picker[data-disabled] {
+  opacity: .55;
+}
+
+.mobile-settings-picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.mobile-settings-filename {
+  min-width: 0;
+  color: #52647e;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}

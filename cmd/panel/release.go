@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mattn/go-isatty"
 	"github.com/ruiange/sing-box-panel/internal/panel"
 )
 
@@ -75,7 +76,7 @@ func runCommand(args []string) int {
 		}
 	case "version", "--version", "-v":
 		if len(args) == 1 {
-			fmt.Fprintln(os.Stdout, version)
+			fmt.Fprintln(os.Stdout, dsbColor(os.Stdout, "32", version))
 			return 0
 		}
 	case "latest":
@@ -94,8 +95,17 @@ func runCommand(args []string) int {
 }
 
 func reportCommandError(err error, exitCode int) int {
-	fmt.Fprintln(os.Stderr, err)
+	fmt.Fprintln(os.Stderr, dsbColor(os.Stderr, "31", err.Error()))
 	return exitCode
+}
+
+func dsbColor(out *os.File, style, text string) string {
+	term := os.Getenv("TERM")
+	if os.Getenv("DSB_COLOR") != "1" || os.Getenv("NO_COLOR") != "" ||
+		term == "" || term == "dumb" || !isatty.IsTerminal(out.Fd()) {
+		return text
+	}
+	return "\x1b[" + style + "m" + text + "\x1b[0m"
 }
 
 func runReleaseCommand(directory string) int {
@@ -118,14 +128,15 @@ func runReleaseCommand(directory string) int {
 		return reportCommandError(err, 1)
 	}
 	if directory == "" {
-		fmt.Fprintln(os.Stdout, latest.Tag)
+		fmt.Fprintln(os.Stdout, dsbColor(os.Stdout, "32", latest.Tag))
 		return 0
 	}
 	path, err := downloadRelease(ctx, client, latest, runtime.GOARCH, directory)
 	if err != nil {
 		return reportCommandError(err, 1)
 	}
-	fmt.Fprintf(os.Stdout, "%s 下载完成，SHA-256 校验通过\n%s\n", latest.Tag, path)
+	fmt.Fprintln(os.Stdout, dsbColor(os.Stdout, "32", latest.Tag+" 下载完成，SHA-256 校验通过"))
+	fmt.Fprintln(os.Stdout, path)
 	return 0
 }
 
