@@ -17,6 +17,7 @@ import { defaultRange, liveLabels, type HistoryRange } from './trafficOptions'
 import { useLiveTraffic } from './useLiveTraffic'
 import { usePanelData } from './usePanelData'
 import { usePanelSession } from './usePanelSession'
+import { useServerStatus } from './useServerStatus'
 
 const TrafficAnalysis = lazy(() => import('./pages/TrafficAnalysis'))
 
@@ -76,6 +77,7 @@ export default function App() {
   const { devices, loading, deviceError, traffic, scopedTraffic, refresh, updateDevice } = usePanelData(
     ready, scope, requestedRange, onExpired, onMissingDevice,
   )
+  const serverStatus = useServerStatus(ready && view === 'overview', onExpired)
   const live = useLiveTraffic(ready, scope, onExpired)
   const selectedDevice = devices.find((device) => device.id === scope)
   const visibleTraffic = scope ? (scopedTraffic?.deviceId === scope ? scopedTraffic : undefined) : traffic
@@ -115,6 +117,11 @@ export default function App() {
     updateDevice(device)
     void message.success(notice)
     void refresh()
+  }
+
+  function refreshData() {
+    void serverStatus.refresh()
+    return refresh()
   }
 
   if (!ready) {
@@ -181,7 +188,7 @@ export default function App() {
           {collectionBadge}
         </span>,
         view !== 'access' && <Tooltip key="refresh" title="刷新数据">
-          <Button type="text" aria-label="刷新数据" icon={<ReloadOutlined />} loading={loading} onClick={() => void refresh()} />
+          <Button type="text" aria-label="刷新数据" icon={<ReloadOutlined />} loading={loading} onClick={refreshData} />
         </Tooltip>,
         <Tooltip key="logout" title="退出登录">
           <Button type="text" aria-label="退出登录" icon={<LogoutOutlined />} loading={loggingOut}
@@ -219,6 +226,7 @@ export default function App() {
           </Suspense>
         ) : view === 'overview' ? (
           <PanelOverview
+            serverStatus={serverStatus.snapshot}
             collectionBadge={collectionBadge} traffic={traffic?.traffic} liveState={live.state}
             devices={devices} presence={live.snapshot?.presence} loading={loading} deviceError={deviceError}
           />

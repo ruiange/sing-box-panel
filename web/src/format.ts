@@ -1,6 +1,7 @@
 import type { Usage } from './api'
 
-const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB']
+const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB']
+const unitStep = 1000n
 
 export function totalUsage(value: Usage) {
   return BigInt(value.upload) + BigInt(value.download)
@@ -10,8 +11,8 @@ export function formatBytes(value: string | number | bigint) {
   const bytes = typeof value === 'bigint' ? value : BigInt(typeof value === 'number' ? Math.max(0, Math.round(value)) : value)
   let factor = 1n
   let unit = 0
-  while (unit < units.length - 1 && bytes >= factor * 1024n) {
-    factor *= 1024n
+  while (unit < units.length - 1 && bytes >= factor * unitStep) {
+    factor *= unitStep
     unit += 1
   }
   const fixed = Number(bytes * 100n / factor) / 100

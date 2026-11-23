@@ -87,6 +87,19 @@ export interface Traffic {
   devices: Array<PeriodUsage & { id: string }>
 }
 
+export interface ServerCapacity {
+  percent: number
+  usedBytes: number
+  totalBytes: number
+}
+
+export interface ServerStatus {
+  load: { percent: number; average1m: number } | null
+  cpu: { percent: number | null; cores: number } | null
+  memory: ServerCapacity | null
+  disk: ServerCapacity | null
+}
+
 export class APIError extends Error {
   constructor(
     message: string,

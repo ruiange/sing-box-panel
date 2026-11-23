@@ -2,12 +2,15 @@ import { ProCard } from '@ant-design/pro-components'
 import { Alert, Button, Typography } from 'antd'
 import type { ReactNode } from 'react'
 import type { Device, DevicePresence, Traffic } from '../api'
+import ServerStatusCards from '../components/ServerStatusCards'
 import { liveLabels } from '../components/TrafficPanels'
 import { formatTime } from '../format'
 import { countDeviceStates } from '../trafficAnalysis'
 import type { LiveState } from '../useLiveTraffic'
+import type { ServerStatusState } from '../useServerStatus'
 
 interface PanelOverviewProps {
+  serverStatus: ServerStatusState
   collectionBadge: ReactNode
   traffic?: Traffic
   liveState: LiveState
@@ -18,7 +21,7 @@ interface PanelOverviewProps {
 }
 
 export default function PanelOverview({
-  collectionBadge, traffic, liveState, devices, presence, loading, deviceError,
+  serverStatus, collectionBadge, traffic, liveState, devices, presence, loading, deviceError,
 }: PanelOverviewProps) {
   const enabledCount = devices.filter((device) => device.enabled).length
   const counts = countDeviceStates(devices, liveState === 'live' ? presence : undefined)
@@ -28,6 +31,7 @@ export default function PanelOverview({
 
   return (
     <div className="panel-overview">
+      <ServerStatusCards snapshot={serverStatus} />
       <ProCard bordered title={<h2 className="panel-section-title">运行状态</h2>}>
         <dl className="panel-overview-details">
           <dt>采集状态</dt>

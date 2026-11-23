@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: 趣多多流量冠军
   version: 0.1.0
-  description: 单节点设备、订阅、流量统计与面板设置。管理接口的 code 为 0 时表示成功，错误时使用 HTTP 状态码且 data 为 null。
+  description: 服务器状态、单节点设备、订阅、流量统计与面板设置。管理接口的 code 为 0 时表示成功，错误时使用 HTTP 状态码且 data 为 null。
 security:
   - session: []
 paths:
@@ -66,6 +66,21 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '500': { $ref: '#/components/responses/Error' }
+  /api/server/status:
+    get:
+      summary: 查询服务器运行状态
+      description: 当前支持 Linux 主机。无法读取的指标返回 null，其余指标仍可使用。CPU 使用率需要两个有效样本，首次读取或间隔过长时为 null。
+      responses:
+        '200':
+          description: 当前主机负载、CPU、内存与根分区使用情况
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Success'
+                  - properties:
+                      data: { $ref: '#/components/schemas/ServerStatus' }
+        '401': { $ref: '#/components/responses/Error' }
   /api/settings/access:
     get:
       summary: 查询后台域名与证书设置
@@ -308,6 +323,40 @@ components:
         code: { type: integer, example: 401 }
         data: { type: object, nullable: true, enum: [null] }
         message: { type: string, example: 请先登录 }
+    ServerStatus:
+      type: object
+      required: [load, cpu, memory, disk]
+      properties:
+        load:
+          type: object
+          nullable: true
+          required: [percent, average1m]
+          properties:
+            percent: { type: number, minimum: 0, description: 一分钟平均负载除以在线逻辑核心数再乘以 100，可超过 100。 }
+            average1m: { type: number, minimum: 0, description: 一分钟平均负载原值。 }
+        cpu:
+          type: object
+          nullable: true
+          required: [percent, cores]
+          properties:
+            percent: { type: number, minimum: 0, maximum: 100, nullable: true }
+            cores: { type: integer, minimum: 1, description: 在线逻辑核心数。 }
+        memory:
+          description: 主机内存容量，已用量为总量减去 MemAvailable。
+          allOf:
+            - $ref: '#/components/schemas/ServerCapacity'
+        disk:
+          description: 根分区（/）容量，已用量为总量减去空闲空间。
+          allOf:
+            - $ref: '#/components/schemas/ServerCapacity'
+    ServerCapacity:
+      type: object
+      nullable: true
+      required: [percent, usedBytes, totalBytes]
+      properties:
+        percent: { type: number, minimum: 0, maximum: 100 }
+        usedBytes: { type: integer, format: int64, minimum: 0 }
+        totalBytes: { type: integer, format: int64, minimum: 1 }
     AccessMode:
       type: string
       enum: [off, auto, manual]

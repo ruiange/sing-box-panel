@@ -18,11 +18,12 @@ type managedNode interface {
 }
 
 type Service struct {
-	store  *store.Store
-	node   managedNode
-	cfg    Config
-	log    *slog.Logger
-	access *domainAccess
+	store        *store.Store
+	node         managedNode
+	cfg          Config
+	log          *slog.Logger
+	access       *domainAccess
+	serverStatus serverStatusSampler
 
 	mu            sync.Mutex // Serializes accounting samples and changes to the node.
 	status        string

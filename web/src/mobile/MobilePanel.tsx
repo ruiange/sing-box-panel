@@ -5,6 +5,7 @@ import {
 import { Button, Card, Input, List, NavBar, NoticeBar, SpinLoading, TabBar, Tag, Toast } from 'antd-mobile'
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { errorMessage, type Device, type Traffic } from '../api'
+import ServerStatusCards from '../components/ServerStatusCards'
 import { formatTime } from '../format'
 import { navigatePanel, pageNames, readPanelLocation, usePanelLocation, type View } from '../panelRoutes'
 import { countDeviceStates } from '../trafficAnalysis'
@@ -12,6 +13,7 @@ import { defaultRange, liveLabels, type HistoryRange } from '../trafficOptions'
 import { useLiveTraffic } from '../useLiveTraffic'
 import { usePanelData } from '../usePanelData'
 import { usePanelSession } from '../usePanelSession'
+import { useServerStatus, type ServerStatusState } from '../useServerStatus'
 import './mobile-panel.css'
 
 const MobileDevices = lazy(() => import('./MobileDevices'))
@@ -82,8 +84,9 @@ function MobileLogin({
 }
 
 function MobileOverview({
-  traffic, trafficError, devices, deviceError, live, loading, onNavigate,
+  serverStatus, traffic, trafficError, devices, deviceError, live, loading, onNavigate,
 }: {
+  serverStatus: ServerStatusState
   traffic?: Traffic
   trafficError?: string
   devices: Device[]
@@ -104,6 +107,7 @@ function MobileOverview({
 
   return (
     <div className="mobile-overview">
+      <ServerStatusCards snapshot={serverStatus} />
       <Card className="mobile-overview-status" title={<h2>运行状态</h2>} extra={
         <Tag color={status === 'ok' ? 'success' : status === 'waiting' ? 'default' : 'danger'} fill="outline">
           {loading && !traffic && !trafficError ? '正在读取' : collectionLabels[status]}
@@ -157,6 +161,7 @@ export default function MobilePanel() {
   const { devices, traffic, scopedTraffic, loading, deviceError, refresh, updateDevice } = usePanelData(
     ready, scope, requestedRange, onExpired, onMissingDevice,
   )
+  const serverStatus = useServerStatus(ready && view === 'overview', onExpired)
   const live = useLiveTraffic(ready, scope, onExpired)
   const visibleTraffic = scope ? (scopedTraffic?.deviceId === scope ? scopedTraffic : undefined) : traffic
   const chartData = visibleTraffic?.range === requestedRange ? visibleTraffic.traffic : undefined
@@ -179,6 +184,11 @@ export default function MobilePanel() {
   function onDeviceSaved(device: Device) {
     updateDevice(device)
     void refresh()
+  }
+
+  function refreshData() {
+    void serverStatus.refresh()
+    return refresh()
   }
 
   async function handleLogout() {
@@ -205,7 +215,7 @@ export default function MobilePanel() {
               <LogoutOutlined aria-hidden="true" />
             </Button>
           ) : (
-            <Button className="mobile-nav-action" fill="none" aria-label="刷新数据" loading={loading} onClick={refresh}>
+            <Button className="mobile-nav-action" fill="none" aria-label="刷新数据" loading={loading} onClick={refreshData}>
               <ReloadOutlined aria-hidden="true" />
             </Button>
           )}
@@ -218,7 +228,7 @@ export default function MobilePanel() {
         <h1 id="mobile-view-title">{pageNames[view]}</h1>
         <Suspense fallback={<MobileLoading>正在打开页面…</MobileLoading>}>
           {view === 'overview' && (
-            <MobileOverview devices={devices} traffic={traffic?.traffic} trafficError={traffic?.error}
+            <MobileOverview serverStatus={serverStatus.snapshot} devices={devices} traffic={traffic?.traffic} trafficError={traffic?.error}
               deviceError={deviceError} live={live} loading={loading} onNavigate={onNavigate} />
           )}
           {view === 'devices' && (

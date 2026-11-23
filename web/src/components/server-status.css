@@ -1,0 +1,146 @@
+.server-status {
+  --server-status-text: #172740;
+  --server-status-muted: #52647e;
+  --server-status-accent: #087954;
+  --server-status-track: #e8edf2;
+  --server-status-surface: #fff;
+  container-type: inline-size;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.server-status-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-block-end: 10px;
+}
+
+.server-status-header h2 {
+  margin: 0;
+  color: var(--server-status-text);
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.server-status-header [role='status'] {
+  color: var(--server-status-muted);
+  font-size: 13px;
+}
+
+.server-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.server-status-card {
+  display: grid;
+  grid-template:
+    '. gauge' 1fr
+    'label gauge' auto
+    'detail detail' auto / minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 5px 8px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #dce5f0;
+  border-radius: 12px;
+  background: var(--server-status-surface);
+  color: var(--server-status-text);
+}
+
+.server-status-card h3 {
+  grid-area: label;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.server-status-detail {
+  grid-area: detail;
+  margin: 0;
+  color: var(--server-status-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+.server-status-detail strong {
+  color: var(--server-status-accent);
+  font-weight: 650;
+}
+
+.server-status-detail strong,
+.server-status-detail span {
+  white-space: nowrap;
+}
+
+.server-status-gauge {
+  --server-status-stroke: 7px;
+  display: grid;
+  grid-area: gauge;
+  place-items: center;
+  justify-self: end;
+  inline-size: 76px;
+  inline-size: clamp(76px, 9.5cqi, 110px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(farthest-side, var(--server-status-surface) calc(100% - var(--server-status-stroke) - 0.5px),
+      transparent calc(100% - var(--server-status-stroke) + 0.5px)),
+    conic-gradient(var(--server-status-accent) var(--server-status-usage, 0%), var(--server-status-track) 0);
+  color: var(--server-status-accent);
+  font-size: 23px;
+  font-size: clamp(23px, 3cqi, 33px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.server-status-gauge small {
+  margin-inline-start: 1px;
+  font-size: 0.46em;
+}
+
+.server-status-gauge[data-unavailable] {
+  color: var(--server-status-muted);
+}
+
+@container (min-width: 800px) {
+  .server-status-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 440px) {
+  .server-status-card {
+    grid-template:
+      'gauge'
+      'label'
+      'detail' / minmax(0, 1fr);
+    padding: 12px;
+  }
+
+  .server-status-card h3 {
+    font-size: 14px;
+  }
+
+  .server-status-detail {
+    font-size: 12px;
+  }
+
+  .server-status-gauge {
+    --server-status-stroke: 5px;
+    inline-size: 62px;
+    font-size: 21px;
+  }
+}
